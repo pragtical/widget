@@ -5,8 +5,8 @@
 --
 
 local style = require "core.style"
-local Widget = require "libraries.widget"
-local Button = require "libraries.widget.button"
+local Widget = require "widget"
+local Button = require "widget.button"
 
 ---Represents a foldingbook pane
 ---@class widget.foldingbook.pane

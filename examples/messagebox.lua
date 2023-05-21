@@ -2,7 +2,7 @@
 -- MessageBox example.
 --
 
-local MessageBox = require "libraries.widget.messagebox"
+local MessageBox = require "widget.messagebox"
 
 ---@type widget.messagebox
 local messagebox = MessageBox(

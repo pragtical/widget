@@ -6,8 +6,8 @@
 
 local common = require "core.common"
 local style = require "core.style"
-local Widget = require "libraries.widget"
-local ListBox = require "libraries.widget.listbox"
+local Widget = require "widget"
+local ListBox = require "widget.listbox"
 
 ---@class widget.selectbox : widget
 ---@field private list_container widget

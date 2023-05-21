@@ -5,7 +5,7 @@
 --
 
 local style = require "core.style"
-local Widget = require "libraries.widget"
+local Widget = require "widget"
 
 ---@class widget.button.icon
 ---@field public code string | nil

@@ -5,9 +5,9 @@
 --
 
 local style = require "core.style"
-local Button = require "libraries.widget.button"
-local ColorPicker = require "libraries.widget.colorpicker"
-local Dialog = require "libraries.widget.dialog"
+local Button = require "widget.button"
+local ColorPicker = require "widget.colorpicker"
+local Dialog = require "widget.dialog"
 
 ---@class widget.colorpickerdialog : widget.dialog
 ---@field super widget.dialog

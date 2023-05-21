@@ -5,8 +5,8 @@
 --
 
 local style = require "core.style"
-local Widget = require "libraries.widget"
-local Label = require "libraries.widget.label"
+local Widget = require "widget"
+local Label = require "widget.label"
 
 -- Hold dimensions of rendered toggle
 local BOX = 40

@@ -5,7 +5,7 @@
 --
 
 local style = require "core.style"
-local Widget = require "libraries.widget"
+local Widget = require "widget"
 
 ---@class widget.checkbox : widget
 ---@field private checked boolean

@@ -5,9 +5,9 @@
 --
 
 local core = require "core"
-local Widget = require "libraries.widget"
-local Button = require "libraries.widget.button"
-local TextBox = require "libraries.widget.textbox"
+local Widget = require "widget"
+local Button = require "widget.button"
+local TextBox = require "widget.textbox"
 
 ---@class widget.numberbox : widget
 ---@field private textbox widget.textbox
