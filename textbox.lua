@@ -1,5 +1,5 @@
 --
--- TextBox widget re-using code from lite's DocView.
+-- TextBox widget re-using code from pragtical's DocView.
 --
 
 local core = require "core"

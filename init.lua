@@ -1,5 +1,5 @@
 --
--- Base widget implementation for lite.
+-- Base widget implementation for pragtical.
 -- @copyright Jefferson Gonzalez
 -- @license MIT
 --
@@ -249,7 +249,7 @@ end
 function Widget:hide()
   self.visible = false
   -- we need to force size to zero on parent widget to properly hide it
-  -- when used as a lite node, otherwise the reserved space of the node
+  -- when used as a pragtical node, otherwise the reserved space of the node
   -- will stay visible and dragging will reveal empty space.
   if not self.parent then
     if self.size.x > 0 or self.size.y > 0 then
@@ -333,7 +333,7 @@ function Widget:is_visible()
 end
 
 ---Taken from the logview and modified it a tiny bit.
----TODO: something similar should be on lite-xl core.
+---TODO: something similar should be on pragtical core.
 ---@param font widget.font
 ---@param text string
 ---@param x integer
@@ -465,7 +465,7 @@ function Widget:draw_border(x, y, w, h)
   )
 end
 
----Called by lite node system to properly resize the widget.
+---Called by pragtical node system to properly resize the widget.
 ---@param axis string | "'x'" | "'y'"
 ---@param value number
 function Widget:set_target_size(axis, value)
@@ -756,7 +756,7 @@ function Widget:get_h_scrollable_size()
   return math.max(self.size.x, self:get_real_width())
 end
 
----The name that is displayed on lite-xl tabs.
+---The name that is displayed on pragtical tabs.
 function Widget:get_name()
   return self.name
 end

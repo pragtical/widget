@@ -113,7 +113,7 @@ end
 
 widget:show()
 
--- You can add the widget as a lite-xl node
+-- You can add the widget as a pragtical node
 widget.border.width = 0
 widget.draggable = false
 widget.defer_draw = false

@@ -1,14 +1,7 @@
-**Update Notice:** With the now available
-[lpm](https://github.com/lite-xl/lite-xl-plugin-manager) package manager, the
-installation path for the Widgets has changed to: `{DATADIR}/libraries/widget`.
-Users and package maintainers are encouraged to point the widgets library
-to this new location as all plugins making use of it will be updated to use
-the new location.
+# Pragtical Widgets
 
-# Lite XL Widgets
-
-A widgets plugin that can be used by plugin writers to more easily implement
-interactive UI elements. The plugin leverages lite-xl __View__ system and
+A widgets library that can be used by plugin writers to more easily implement
+interactive UI elements. The plugin leverages Pragtical __View__ system and
 provides ready to use components to reduce code duplication for stuff that
 most of the time is the same and simplify the process of writing your own
 GUI controls.
@@ -54,12 +47,8 @@ everyone to benefit by opening a Pull Request!
 
 ## Installation
 
-Clone into the lite-xl configuration directory, for example on linux:
-
-```sh
-mkdir ~/.config/lite-xl/libraries
-git clone https://github.com/lite-xl/lite-xl-widgets ~/.config/lite-xl/libraries/widget
-```
+The library is a git submodule of the Pragtical editor so no additional steps
+are neccesary to install.
 
 ## Usage
 

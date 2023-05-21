@@ -188,7 +188,7 @@ function ListBox:calc_row_size_pos(ridx)
 end
 
 ---Recalculate all row sizes and positions which should be only required
----when lite-xl ui scale changes or a row is removed from the list
+---when pragtical ui scale changes or a row is removed from the list
 function ListBox:recalc_all_rows()
   for ridx, _ in ipairs(self.rows) do
     self:calc_row_size_pos(ridx)

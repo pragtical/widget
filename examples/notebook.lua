@@ -108,14 +108,14 @@ listbox.on_row_click = function(self, idx, data)
   self:remove_row(idx)
 end
 
--- defer draw needs to be set to false when adding widget as a lite-xl node
+-- defer draw needs to be set to false when adding widget as a pragtical node
 notebook.border.width = 0
 notebook.draggable = false
 notebook.defer_draw = false
 
 local inside_node = false
 
--- You can add the widget as a lite-xl node
+-- You can add the widget as a pragtical node
 command.add(nil,{
   ["notebook-widget:toggle"] = function()
     if inside_node then
