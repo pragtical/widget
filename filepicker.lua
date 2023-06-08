@@ -29,14 +29,20 @@ FilePicker.mode = {
 }
 
 ---@param text string
+---@return string[]
 local function suggest_directory(text)
   text = common.home_expand(text)
-  return common.home_encode_list(common.dir_path_suggest(text))
+  if not common.is_absolute_path(text) then
+    text = core.root_project().path .. PATHSEP .. text
+  end
+  return common.home_encode_list(
+    common.dir_path_suggest(text, core.root_project().path)
+  )
 end
 
 ---@param path string
 local function check_directory_path(path)
-  local abs_path = system.absolute_path(path)
+  local abs_path = core.project_absolute_path(path)
   local info = abs_path and system.get_file_info(abs_path)
   if not info or info.type ~= 'dir' then return nil end
   return abs_path
@@ -103,7 +109,9 @@ function FilePicker:new(parent, path)
   local label_width = self.file:get_width()
   if label_width <= 10 then
     label_width = 200 + (self.file.border.width * 2)
-    self.file:set_size(200, self.button:get_height() - self.button.border.width * 2)
+    self.file:set_size(
+      200, self.button:get_height() - self.button.border.width * 2
+    )
   end
 
   self:set_size(
@@ -164,9 +172,9 @@ end
 function FilePicker:set_path(path)
   if path then
     self.path = path or ""
-    if common.path_belongs_to(path, core.project_dir) then
+    if common.path_belongs_to(path, core.root_project().path) then
       self.file.label = path ~= "" and
-        common.relative_path(core.project_dir, path)
+        common.relative_path(core.root_project().path, path)
         or
         ""
     else
@@ -194,9 +202,9 @@ function FilePicker:get_relative_path()
   if
     self.path ~= ""
     and
-    common.path_belongs_to(self.path, core.project_dir)
+    common.path_belongs_to(self.path, core.root_project().path)
   then
-    return common.relative_path(core.project_dir, self.path)
+    return common.relative_path(core.root_project().path, self.path)
   end
   return self.path or ""
 end
@@ -251,6 +259,12 @@ end
 ---@param list table<integer, string>
 ---@return table<integer,string>
 local function filter(self, list)
+  for i=1, #list do
+    local path = common.home_expand(list[i])
+    if common.path_belongs_to(path, core.root_project().path) then
+      list[i] = common.relative_path(core.root_project().path, path)
+    end
+  end
   if #self.filters > 0 then
     local new_list = {}
     for _, value in ipairs(list) do
@@ -283,11 +297,11 @@ local function show_file_picker(self)
       local dirname = common.dirname(common.home_expand(text))
       if dirname then
         filename = common.home_expand(text)
-        filename = system.absolute_path(dirname)
+        filename = core.project_absolute_path(dirname)
           .. "/"
           .. str_replace(filename, dirname .. "/", "")
       elseif filename ~= "" then
-        filename = core.project_dir .. "/" .. filename
+        filename = core.root_project().path .. "/" .. filename
       end
       self:set_path(filename)
       self:on_change(filename ~= "" and filename or nil)
@@ -295,11 +309,19 @@ local function show_file_picker(self)
     suggest = function (text)
       return filter(
         self,
-        common.home_encode_list(common.path_suggest(common.home_expand(text)))
+        common.home_encode_list(
+          common.path_suggest(
+            common.home_expand(text), core.root_project().path
+          )
+        )
       )
     end,
     validate = function(text)
-      if #self.filters > 0 and text ~= "" and not common.match_pattern(text, self.filters) then
+      if
+        #self.filters > 0 and text ~= ""
+        and
+        not common.match_pattern(text, self.filters)
+      then
         core.error(
           "File does not match the filters: %s",
           table.concat(self.filters, ", ")
@@ -344,7 +366,11 @@ local function show_dir_picker(self)
       return filter(self, suggest_directory(text))
     end,
     validate = function(text)
-      if #self.filters > 0 and text ~= "" and not common.match_pattern(text, self.filters) then
+      if
+        #self.filters > 0 and text ~= ""
+        and
+        not common.match_pattern(text, self.filters)
+      then
         core.error(
           "Directory does not match the filters: %s",
           table.concat(self.filters, ", ")
