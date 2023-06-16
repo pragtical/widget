@@ -10,6 +10,7 @@ local Widget = require "widget"
 local ListBox = require "widget.listbox"
 
 ---@class widget.selectbox : widget
+---@overload fun(parent?:widget, label?:string):widget.selectbox
 ---@field private list_container widget
 ---@field private list widget.listbox
 ---@field private selected integer
