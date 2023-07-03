@@ -30,7 +30,7 @@ Components currently provided by this plugin are:
 * [FontsList](fontslist.lua)
 * [InputDialog](inputdialog.lua)
 * [ItemsList](itemslist.lua)
-* [KeybindDiialog](keybinddialog.lua)
+* [KeybindDialog](keybinddialog.lua)
 * [Label](label.lua)
 * [Line](line.lua)
 * [ListBox](listbox.lua)
