@@ -404,18 +404,12 @@ function FilePicker:show_picker()
   end
 end
 
-function FilePicker:update()
-  if not FilePicker.super.update(self) then return false end
-
-  if self:get_width() ~= (self.file:get_width() + self.button:get_width()) then
-    self:set_size(
-      self.file:get_width() + self.button:get_width(),
-      self.button:get_height()
-    )
-  end
-
-  return true
+function FilePicker:update_size_position()
+  FilePicker.super.update_size_position(self)
+  self:set_size(
+    self.file:get_width() + self.button:get_width(),
+    self.button:get_height()
+  )
 end
-
 
 return FilePicker

@@ -113,6 +113,18 @@ notebook.border.width = 0
 notebook.draggable = false
 notebook.defer_draw = false
 
+-- reposition items on scale changes
+notebook.update_size_position = function(self)
+  NoteBook.update_size_position(self)
+  textbox:set_position(10, 20)
+  numberbox:set_position(10, textbox:get_bottom() + 20)
+  toggle:set_position(10, numberbox:get_bottom() + 20)
+  progress:set_position(textbox:get_right() + 50, 20)
+  checkbox:set_position(10, 20)
+  button:set_position(10, 20)
+  checkbox2:set_position(10, button:get_bottom() + 30)
+end
+
 local inside_node = false
 
 -- You can add the widget as a pragtical node

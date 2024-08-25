@@ -37,7 +37,6 @@ local MessageBox = require "widget.messagebox"
 ---@field private expand boolean
 ---@field private visible_rows table<integer, integer>
 ---@field private visible_rendered boolean
----@field private last_scale integer
 ---@field private last_offset integer
 local ListBox = Widget:extend()
 
@@ -70,7 +69,6 @@ function ListBox:new(parent)
   self.expand = false
   self.visible_rows = {}
   self.visible_rendered = false
-  self.last_scale = 0
   self.last_offset = 0
 
   self:set_size(200, (self:get_font():get_height() + (style.padding.y*2)) * 3)
@@ -819,19 +817,18 @@ end
 ---@param data any Data associated with the row
 function ListBox:on_row_click(idx, data) end
 
+function ListBox:on_scale_change(new_scale, prev_scale)
+  ListBox.super.on_scale_change(self, new_scale, prev_scale)
+  if #self.columns > 0 then
+    for col, column in ipairs(self.columns) do
+      column.width = self:get_col_width(col)
+    end
+  end
+  self:recalc_all_rows()
+end
+
 function ListBox:update()
   if not ListBox.super.update(self) then return false end
-
-  -- only calculate columns width on scale change since this can be expensive
-  if self.last_scale ~= SCALE then
-    if #self.columns > 0 then
-      for col, column in ipairs(self.columns) do
-        column.width = self:get_col_width(col)
-      end
-    end
-    self:recalc_all_rows()
-    self.last_scale = SCALE
-  end
 
   local _, oy = self:get_content_offset()
   if self.last_offset ~= oy then

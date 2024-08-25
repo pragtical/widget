@@ -116,9 +116,6 @@ function ColorPicker:new(parent, color)
   end
 
   self:set_color(color or {255, 0, 0, 255})
-
-  -- set initial child positions and size
-  self:update_size()
 end
 
 ---Converts an RGB color value to HSL. Conversion formula
@@ -396,46 +393,42 @@ end
 ---be a css string representation.
 ---@param color renderer.color | string
 function ColorPicker:set_color(color, skip_html, skip_rgba)
-  -- we set the color on a coroutine in case it is been set before
-  -- the control is properly initialized like the constructor.
-  core.add_thread(function()
-    if type(color) == "string" then
-      color = ColorPicker.color_from_string(color)
-    end
+  if type(color) == "string" then
+    color = ColorPicker.color_from_string(color)
+  end
 
-    if not color then color = {255, 0, 0, 255} end
+  if not color then color = {255, 0, 0, 255} end
 
-    local hsva = ColorPicker.rgb_to_hsv(color)
+  local hsva = ColorPicker.rgb_to_hsv(color)
 
-    self.hue_pos = hsva[1] * 100
-    self.saturation_pos = hsva[2] * 100
-    self.brightness_pos = hsva[3] * 100
+  self.hue_pos = hsva[1] * 100
+  self.saturation_pos = hsva[2] * 100
+  self.brightness_pos = hsva[3] * 100
 
-    self.hue_color = self:get_hue_color()
-    self.saturation_color = self:get_saturation_color()
-    self.brightness_color = self:get_brightness_color()
-    self.alpha = color[4]
+  self.hue_color = self:get_hue_color()
+  self.saturation_color = self:get_saturation_color()
+  self.brightness_color = self:get_brightness_color()
+  self.alpha = color[4]
 
-    if not skip_html then
-      self.html_updating = true
-      self.html_notation:set_text(string.format(
-        "#%02X%02X%02X%02X",
-        color[1], color[2], color[3], color[4]
-      ))
-      self.html_updating = false
-    end
+  if not skip_html then
+    self.html_updating = true
+    self.html_notation:set_text(string.format(
+      "#%02X%02X%02X%02X",
+      color[1], color[2], color[3], color[4]
+    ))
+    self.html_updating = false
+  end
 
-    if not skip_rgba then
-      self.rgba_updating = true
-      self.rgba_notation:set_text(string.format(
-        "rgba(%d,%d,%d,%.2f)",
-        color[1], color[2], color[3], color[4] / 255
-      ))
-      self.rgba_updating = false
-    end
+  if not skip_rgba then
+    self.rgba_updating = true
+    self.rgba_notation:set_text(string.format(
+      "rgba(%d,%d,%d,%.2f)",
+      color[1], color[2], color[3], color[4] / 255
+    ))
+    self.rgba_updating = false
+  end
 
-    self:on_change(color)
-  end)
+  self:on_change(color)
 end
 
 ---Set the transparency level, the lower the given alpha the more transparent.
@@ -669,23 +662,18 @@ function ColorPicker:on_mouse_moved(x, y, dx, dy)
   return true
 end
 
-function ColorPicker:update_size()
+function ColorPicker:update_size_position()
+  ColorPicker.super.update_size_position(self)
   self.selector.h = 10 * SCALE
   local x, y = 0, style.padding.y * 3 + self.selector.h * 4
   self.html_notation:set_position(x, y)
+  self.html_notation:set_size(150 * SCALE)
   self.rgba_notation:set_position(self.html_notation:get_right() + style.padding.x, y)
-  if self:get_width() < self.rgba_notation:get_right() then
-    self:set_size(self.rgba_notation:get_right() + style.padding.x)
-  end
-  if self:get_height() < self.rgba_notation:get_bottom() then
-    self:set_size(nil, self.rgba_notation:get_bottom() + style.padding.y)
-  end
-end
-
-function ColorPicker:update()
-  if not ColorPicker.super.update(self) then return false end
-  self:update_size()
-  return true
+  self.rgba_notation:set_size(150 * SCALE)
+  self:set_size(
+    self.rgba_notation:get_right() + style.padding.x,
+    self.rgba_notation:get_bottom() + style.padding.y
+  )
 end
 
 function ColorPicker:draw_selector(x, y, h, color)
@@ -703,7 +691,7 @@ function ColorPicker:draw()
 
   self.selector.x = x
   self.selector.y = style.padding.y + y
-  self.selector.w = w - style.padding.x - 100
+  self.selector.w = w - style.padding.x - 75 * SCALE
   self.selector.h = 10 * SCALE
 
   self:draw_hue(
@@ -732,7 +720,7 @@ function ColorPicker:draw()
   renderer.draw_rect(
     self.selector.x + style.padding.x + self.selector.w,
     self.selector.y,
-    100,
+    75 * SCALE,
     (self.selector.y + style.padding.y * 2 + self.selector.h * 3)
       - self.selector.y,
     c

@@ -42,12 +42,17 @@ function ColorPickerDialog:new(title, color)
   end
 end
 
+function ColorPickerDialog:show()
+  ColorPickerDialog.super.show(self)
+  self:centered()
+end
+
 ---Called when the user clicks on apply
 ---@param value renderer.color
 function ColorPickerDialog:on_apply(value) end
 
-function ColorPickerDialog:update()
-  if not ColorPickerDialog.super.update(self) then return false end
+function ColorPickerDialog:update_size_position()
+  ColorPickerDialog.super.update_size_position(self)
 
   self.picker:set_position(style.padding.x/2, 0)
 
@@ -60,17 +65,16 @@ function ColorPickerDialog:update()
     self.picker:get_bottom() + style.padding.y
   )
 
-  self.panel.size.x = self.panel:get_real_width() + style.padding.x
-  self.panel.size.y = self.panel:get_real_height()
-  self.size.x = self:get_real_width() - (style.padding.x / 2)
-  self.size.y = self:get_real_height() + (style.padding.y / 2)
+  self.panel.size.y = self.panel:get_real_height() + style.padding.y / 2
+
+  local size = self:get_size()
+  size.x = self.picker:get_right() + style.padding.x / 2
+  size.y = self:get_real_height() + style.padding.y / 2
 
   self.close:set_position(
-    self.size.x - self.close.size.x - (style.padding.x / 2),
+    size.x - self.close:get_width() - (style.padding.x / 2),
     style.padding.y / 2
   )
-
-  return true
 end
 
 

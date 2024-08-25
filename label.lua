@@ -4,6 +4,7 @@
 -- @license MIT
 --
 
+local core = require "core"
 local style = require "core.style"
 local Widget = require "widget"
 
@@ -23,6 +24,7 @@ function Label:new(parent, label)
   self.custom_size = {x = 0, y = 0}
 
   self:set_label(label or "")
+  self.default_height = true
 end
 
 ---@param width? integer
@@ -31,6 +33,16 @@ function Label:set_size(width, height)
   Label.super.set_size(self, width, height)
   self.custom_size.x = self.size.x
   self.custom_size.y = self.size.y
+  if height then
+    self.default_height = false
+  end
+  if self.default_height then
+    local font_height = self:get_font():get_height()
+    if self.border.width > 0 then
+      font_height = font_height + style.padding.y
+    end
+    Label.super.set_size(self, nil, font_height)
+  end
 end
 
 ---Set the label text and recalculates the widget size.
@@ -55,15 +67,14 @@ function Label:set_label(text)
   end
 end
 
-function Label:update()
-  if not Label.super.update(self) then return false end
-
+function Label:update_size_position()
+  Label.super.update_size_position(self)
   if self.custom_size.x <= 0 then
-    -- update the size
     self:set_label(self.label)
   end
-
-  return true
+  if self.border.width > 0 then
+    self.scrollable = true
+  end
 end
 
 function Label:draw()
@@ -76,6 +87,13 @@ function Label:draw()
 
   local posx, posy = self.position.x + px, self.position.y + py
 
+  core.push_clip_rect(
+    self.position.x,
+    self.position.y,
+    self.size.x,
+    self.size.y
+  )
+
   if type(self.label) == "table" then
     self:draw_styled_text(self.label, posx, posy)
   else
@@ -87,6 +105,10 @@ function Label:draw()
       self.foreground_color or style.text
     )
   end
+
+  core.pop_clip_rect()
+
+  self:draw_scrollbar()
 
   return true
 end

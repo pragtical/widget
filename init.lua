@@ -220,10 +220,7 @@ function Widget:show()
   -- re-triggers update to make sure everything was properly calculated
   -- and redraw the interface once, maybe something else can be changed
   -- to not require this action, but for now lets do this.
-  core.add_thread(function()
-    self:update()
-    core.redraw = true
-  end)
+  self.update_size_position_count = 50
 end
 
 ---Perform an animated show.
@@ -337,7 +334,9 @@ end
 ---@return boolean
 function Widget:is_visible()
   if
-    not self.visible or (self.parent and not self.parent:is_visible())
+    not self.explicit_update
+    and
+    (not self.visible or (self.parent and not self.parent:is_visible()))
   then
     return false
   end
@@ -518,6 +517,21 @@ function Widget:set_size(width, height)
     if width then self.size.x = width end
     if height then self.size.y = height end
   end
+
+  if
+    not self.prev_width or not self.prev_height
+  then
+    self.prev_width, self.prev_height = width, height
+    self.update_size_position_count = 50
+  end
+end
+
+---@return widget.position
+function Widget:get_size()
+  if not self.parent and not self.visible then
+    return self.prev_size
+  end
+  return self.size
 end
 
 ---Set the widget border size and appropriately re-set the widget size.
@@ -526,13 +540,9 @@ function Widget:set_border_width(width)
   local wwidth, wheight = 0, 0;
   if self.border.width > 0 then
     local prev_width = self.border.width * 2
-    if not self.parent and not self.visible then
-      wwidth = self.prev_size.x + prev_width
-      wheight = self.prev_size.y + prev_width
-    else
-      wwidth = self.size.x + prev_width
-      wheight = self.size.y + prev_width
-    end
+    local size = self:get_size()
+    wwidth = size.x + prev_width
+    wheight = size.y + prev_width
   end
   self.border.width = width
   self:set_size(wwidth, wheight)
@@ -606,6 +616,7 @@ end
 ---Get the relative position in relation to parent
 ---@return widget.position
 function Widget:get_position()
+  self:update_if_scaled()
   local position = { x = self.position.x, y = self.position.y }
   if self.parent then
     position.x = self.position.rx
@@ -617,13 +628,15 @@ end
 ---Get width including borders.
 ---@return number
 function Widget:get_width()
-  return self.size.x + (self.border.width * 2)
+  local size = self:get_size()
+  return size.x + (self.border.width * 2)
 end
 
 ---Get height including borders.
 ---@return number
 function Widget:get_height()
-  return self.size.y + (self.border.width * 2)
+  local size = self:get_size()
+  return size.y + (self.border.width * 2)
 end
 
 ---Get the right x coordinate relative to parent
@@ -760,14 +773,14 @@ end
 ---widget or the size of the widget it self if greater.
 ---@return number
 function Widget:get_scrollable_size()
-  return math.max(self.size.y, self:get_real_height())
+  return math.max(self:get_size().y, self:get_real_height())
 end
 
 ---Calculates the x scrollable size taking into account the right most
 ---widget or the size of the widget it self if greater.
 ---@return number
 function Widget:get_h_scrollable_size()
-  return math.max(self.size.x, self:get_real_width())
+  return math.max(self:get_size().x, self:get_real_width())
 end
 
 ---The name that is displayed on pragtical tabs.
@@ -1166,6 +1179,7 @@ function Widget:on_scale_change(new_scale, prev_scale)
       self.font:get_size() * (new_scale / prev_scale)
     )
   end
+  self:update_size_position()
 end
 
 ---Registers a new animation to be ran on the update cycle.
@@ -1262,9 +1276,26 @@ function Widget:run_animations()
   end
 end
 
+---Explicitly call the widget update procedure when the scale change even if
+---the widget is not visible.
+function Widget:update_if_scaled()
+  if self.current_scale ~= SCALE then
+    self.explicit_update = true
+    self:update()
+    self.explicit_update = false
+  end
+end
+
 ---If visible execute the widget calculations and returns true.
 ---@return boolean
 function Widget:update()
+  if self.update_size_position_count and self.update_size_position_count > 0 then
+    self:update_size_position()
+    self.update_size_position_count = self.update_size_position_count - 1
+  elseif self.update_size_position_count then
+    self.update_size_position_count = nil
+  end
+
   if not self:is_visible() then return false end
 
   Widget.super.update(self)
@@ -1275,11 +1306,26 @@ function Widget:update()
   -- run any pending animations
   self:run_animations()
 
-  for _, child in pairs(self.childs) do
-    child:update()
+  if not self.explicit_update then
+    for _, child in pairs(self.childs) do
+      child:update()
+    end
+  else
+    for _, child in pairs(self.childs) do
+      child:update_if_scaled()
+    end
   end
 
   return true
+end
+
+---Similar to update, but here you should perform expensive calculations that
+---will get executed for a predefined period of time when a widget is
+---initialized, scale has changed or a widget switched from hidden to visible.
+function Widget:update_size_position()
+  for _, child in pairs(self.childs) do
+    child:update_size_position()
+  end
 end
 
 function Widget:draw_scrollbar()

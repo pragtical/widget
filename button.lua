@@ -50,6 +50,7 @@ function Button:toggle_expand(expand)
   else
     self.expanded = not self.expanded
   end
+  self:update_position()
 end
 
 ---Set the icon drawn alongside the button text.
@@ -72,13 +73,15 @@ function Button:set_label(text)
   local font = self:get_font()
   local border = self.border.width * 2
 
+  local size = self:get_size()
+
   if self.expanded and self.parent then
-    self.size.x = self.parent.size.x - self.position.rx - border
+    size.x = self.parent:get_size().x - self.position.rx - border
   else
-    self.size.x = font:get_width(self.label) + (self.padding.x * 2) - border
+    size.x = font:get_width(self.label) + (self.padding.x * 2) - border
   end
 
-  self.size.y = font:get_height() + (self.padding.y * 2) - border
+  size.y = font:get_height() + (self.padding.y * 2) - border
 
   if self.icon.code then
     local icon_w = style.icon_font:get_width(self.icon.code)
@@ -89,8 +92,8 @@ function Button:set_label(text)
 
     local icon_h = style.icon_font:get_height() + (self.padding.y * 2) - border
 
-    self.size.x = self.size.x + icon_w
-    self.size.y = math.max(self.size.y, icon_h)
+    size.x = size.x + icon_w
+    size.y = math.max(size.y, icon_h)
   end
 end
 
@@ -112,13 +115,9 @@ function Button:on_scale_change(new_scale, prev_scale)
   self.padding.y = self.padding.y * (new_scale / prev_scale)
 end
 
-function Button:update()
-  if not Button.super.update(self) then return false end
-
-  -- update size
+function Button:update_size_position()
+  Button.super.update_size_position(self)
   self:set_label(self.label)
-
-  return true
 end
 
 function Button:draw()

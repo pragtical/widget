@@ -33,8 +33,9 @@ function CheckBox:set_label(text)
 
   local font = self:get_font()
 
-  self.size.x = font:get_width(self.label) + bw + (style.padding.x / 2)
-  self.size.y = font:get_height()
+  local size = self:get_size()
+  size.x = font:get_width(self.label) + bw + (style.padding.x / 2)
+  size.y = font:get_height()
 end
 
 ---Change the status of the checkbox.
@@ -100,13 +101,9 @@ function CheckBox:get_box_rect()
     fh
 end
 
-function CheckBox:update()
-  if not CheckBox.super.update(self) then return false end
-
-  -- update size
+function CheckBox:update_size_position()
+  CheckBox.super.update_size_position(self)
   self:set_label(self.label)
-
-  return true
 end
 
 function CheckBox:draw()
