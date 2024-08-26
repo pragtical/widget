@@ -189,6 +189,8 @@ function NumberBox:on_scale_change(new_scale, prev_scale)
 end
 
 function NumberBox:update_size_position()
+  NumberBox.super.update_size_position(self)
+
   self.textbox:set_position(0, 0)
   self.textbox:set_size(125 * SCALE)
 

@@ -175,6 +175,8 @@ function MessageBox:on_scale_change(new_scale, prev_scale)
 end
 
 function MessageBox:update_size_position()
+  MessageBox.super.update_size_position(self)
+
   self:reposition_buttons()
 
   local width = math.max(self.title:get_width())
