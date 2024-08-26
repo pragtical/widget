@@ -181,22 +181,21 @@ function FontsList:get_options()
   return self.options
 end
 
-function FontsList:update()
-  if not FontsList.super.update(self) then return false end
+function FontsList:update_size_position()
+  FontsList.super.update_size_position(self)
 
-  if self.size.x == 0 then
-    self.size.x = self.add:get_width()
-      + (style.padding.x / 2) + self.remove:get_width()
-      + (style.padding.x / 2) + self.up:get_width()
-      + (style.padding.x / 2) + self.down:get_width() + (50 * SCALE)
-    self.size.y = self.add:get_height() + (style.padding.y * 2) + 100
-  end
+  local size = self:get_size()
+
+  size.x = self.add:get_width()
+    + (style.padding.x / 2) + self.remove:get_width()
+    + (style.padding.x / 2) + self.up:get_width()
+    + (style.padding.x / 2) + self.down:get_width() + (50 * SCALE)
 
   self.list:set_position(0, 0)
 
   self.list:set_size(
-    self.size.x,
-    self.size.y - self.add:get_height() - (style.padding.y * 2)
+    size.x,
+    self.add:get_height() * 3 - (style.padding.y * 2)
   )
 
   self.add:set_position(0, self.list:get_bottom() + style.padding.y)
@@ -216,7 +215,7 @@ function FontsList:update()
     self.list:get_bottom() + style.padding.y
   )
 
-  return true
+  size.y = self.down:get_bottom()
 end
 
 

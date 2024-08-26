@@ -67,7 +67,7 @@ end
 ---Calculate the dialog size, centers it relative to screen and shows it.
 function Dialog:show()
   Dialog.super.show(self)
-  self:update()
+  self:update_size_position()
   self:centered()
 end
 
@@ -76,19 +76,24 @@ function Dialog:on_close()
   self:hide()
 end
 
-function Dialog:update()
-  if not Dialog.super.update(self) then return false end
+function Dialog:update_size_position()
+  Dialog.super.update_size_position(self)
+
+  local min_width = self.size.mx * SCALE
+  local min_height = self.size.my * SCALE
+
+  local size = self:get_size()
 
   local width = math.max(
     self.title:get_width() + (style.padding.x * 3) + self.close:get_width(),
-    self.size.mx,
-    self.size.x
+    min_width,
+    size.x
   )
 
   local height = math.max(
     self.title:get_height() + (style.padding.y * 3),
-    self.size.my,
-    self.size.y
+    min_height,
+    size.y
   )
 
   self:set_size(width, height)
@@ -99,7 +104,7 @@ function Dialog:update()
   )
 
   self.close:set_position(
-    self.size.x - self.close.size.x - (style.padding.x / 2),
+    size.x - self.close.size.x - (style.padding.x / 2),
     style.padding.y / 2
   )
 
@@ -109,11 +114,9 @@ function Dialog:update()
   )
 
   self.panel:set_size(
-    self.size.x,
-    self.size.y - self.title.size.y - style.padding.y
+    size.x,
+    size.y - self.title.size.y - style.padding.y
   )
-
-  return true
 end
 
 ---We overwrite default draw function to draw the title background.

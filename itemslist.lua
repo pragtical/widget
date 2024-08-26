@@ -132,20 +132,22 @@ function ItemsList:get_items()
   return output
 end
 
-function ItemsList:update()
-  if not ItemsList.super.update(self) then return false end
+function ItemsList:update_size_position()
+  ItemsList.super.update_size_position(self)
+
+  local size = self:get_size()
 
   if self.size.x == 0 then
-    self.size.x = self.add:get_width()
-      + (style.padding.x / 2) + self.remove:get_width() + (50 * SCALE)
-    self.size.y = self.add:get_height() + (style.padding.y * 2) + 100
+    size.x = (self.add:get_width()
+      + (style.padding.x / 2) + self.remove:get_width() + (100 * SCALE)
+    )
   end
 
   self.list:set_position(0, 0)
 
   self.list:set_size(
-    self.size.x,
-    self.size.y - self.add:get_height() - (style.padding.y * 2)
+    size.x,
+    self.add:get_height() * 3 - (style.padding.y * 2)
   )
 
   self.add:set_position(0, self.list:get_bottom() + style.padding.y)
@@ -155,7 +157,7 @@ function ItemsList:update()
     self.list:get_bottom() + style.padding.y
   )
 
-  return true
+  size.y = self.add:get_bottom() + self.add.border.width * 2
 end
 
 

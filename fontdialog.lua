@@ -54,7 +54,6 @@ function FontDialog:new(font, options)
   self.preview = Label(self.panel, "No Font Selected")
   self.preview.border.width = 1
   self.preview.clickable = true
-  self.preview:set_size(100, 100)
   function self.preview:on_mouse_enter(...)
     Label.super.on_mouse_enter(self, ...)
     self.border.color = style.caret
@@ -258,10 +257,11 @@ end
 ---@param options widget.fontdialog.fontoptions
 function FontDialog:on_save(font, options) end
 
-function FontDialog:update()
-  if not FontDialog.super.update(self) then return false end
+function FontDialog:update_size_position()
+  FontDialog.super.update_size_position(self)
 
   self.preview:set_position(style.padding.x/2, style.padding.y/2)
+  self.preview:set_size(100, 75 * SCALE)
 
   self.font_size:set_position(
     style.padding.x/2,
@@ -323,15 +323,20 @@ function FontDialog:update()
   )
 
   self.panel.size.x = self.panel:get_real_width() + style.padding.x
-  self.panel.size.y = self.panel:get_real_height()
+  self.panel.size.y = self.panel:get_real_height() + style.padding.y
   self.size.x = self:get_real_width() - (style.padding.x / 2)
-  self.size.y = self:get_real_height() + (style.padding.y / 2)
+  self.size.y = self:get_real_height()
 
   self.line:set_width(self.size.x - style.padding.x)
 
-  self.preview:set_size(self.size.x - style.padding.x)
+  self.preview:set_size(self.hinting:get_right() - style.padding.x / 2)
 
-  return true
+  self.size.x = self.preview:get_right() + style.padding.x / 2
+
+  self.close:set_position(
+    self.size.x - self.close.size.x - (style.padding.x / 2),
+    style.padding.y / 2
+  )
 end
 
 

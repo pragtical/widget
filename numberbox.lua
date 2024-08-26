@@ -5,6 +5,7 @@
 --
 
 local core = require "core"
+local style = require "core.style"
 local Widget = require "widget"
 local Button = require "widget.button"
 local TextBox = require "widget.textbox"
@@ -96,12 +97,6 @@ function NumberBox:new(parent, value, min, max, step)
   end
 
   self.border.width = 0
-
-  self:set_size(
-    self.textbox:get_width() - 100
-      + self.decrease_button:get_width()
-      + self.increase_button:get_width()
-  )
 end
 
 ---Set a new value.
@@ -182,23 +177,37 @@ function NumberBox:mouse_pressed(increase)
   end)
 end
 
----Overrided to enforce minimum allowed size.
----@param width integer
----@param height? integer Ignored on the number box
-function NumberBox:set_size(width, height)
-  local buttons_w = self.decrease_button:get_width()
-    + self.increase_button:get_width()
-
-  -- permit a minimum of 100 pixels wide for textbox
-  if width < (buttons_w + 100) then
-    width = 100 + buttons_w
+function NumberBox:on_scale_change(new_scale, prev_scale)
+  NumberBox.super.on_scale_change(self, new_scale, prev_scale)
+  -- if a button was pressed while a scale change occured release it
+  -- to prevent losing focus and losing the on_mouse_released
+  if self.increase_button.mouse_is_pressed then
+    self.increase_button:on_mouse_released("left", 0, 0)
+  elseif self.decrease_button.mouse_is_pressed then
+    self.decrease_button:on_mouse_released("left", 0, 0)
   end
+end
 
-  self.textbox:set_size(width - buttons_w)
+function NumberBox:update_size_position()
+  NumberBox.super.update_size_position(self)
 
-  NumberBox.super.set_size(
-    self,
-    width,
+  self.textbox:set_position(0, 0)
+  self.textbox:set_size(125 * SCALE)
+
+  self.decrease_button:set_position(
+    self.textbox:get_right() - self.decrease_button.border.width,
+    0
+  )
+
+  self.increase_button:set_position(
+    self.decrease_button:get_right() - self.increase_button.border.width,
+    0
+  )
+
+  self:set_size(
+    self.textbox:get_width()
+      + self.decrease_button:get_width()
+      + self.increase_button:get_width(),
     math.max(
       self.textbox:get_height(),
       self.decrease_button:get_height(),
@@ -206,32 +215,8 @@ function NumberBox:set_size(width, height)
     )
     -- TODO: check what causes the need for this border size addition since
     -- it shouldn't be needed but for now fixes occasional bottom border cut.
-    + self.increase_button.border.width
+    + self.textbox.border.width * 2
   )
-end
-
-function NumberBox:update()
-  if not NumberBox.super.update(self) then return false end
-
-  self:set_size(
-    self.textbox:get_width()
-      + self.decrease_button:get_width()
-      + self.increase_button:get_width()
-  )
-
-  self.textbox:set_position(0, 0)
-
-  self.decrease_button:set_position(
-    self.textbox:get_right(),
-    0
-  )
-
-  self.increase_button:set_position(
-    self.decrease_button:get_right(),
-    0
-  )
-
-  return true
 end
 
 

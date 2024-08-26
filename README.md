@@ -49,7 +49,7 @@ everyone to benefit by opening a Pull Request!
 
 ## Installation
 
-The library is a git submodule of the Pragtical editor so no additional steps
+The library is a meson subproject of the Pragtical editor so no additional steps
 are neccesary to install.
 
 ## Usage

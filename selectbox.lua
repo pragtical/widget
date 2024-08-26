@@ -24,14 +24,8 @@ local SelectBox = Widget:extend()
 function SelectBox:new(parent, label)
   SelectBox.super.new(self, parent)
   self.type_name = "widget.selectbox"
-  self.size.x = 200 + (style.padding.x * 2)
-  self.size.y = self:get_font():get_height() + (style.padding.y * 2)
   self.list_container = Widget()
   self.list_container.name = self:get_name()
-  self.list_container:set_size(
-    self.size.x - self.list_container.border.width,
-    150
-  )
   self.list = ListBox(self.list_container)
   self.list.border.width = 0
   self.list:enable_expand(true)
@@ -63,6 +57,9 @@ function SelectBox:new(parent, label)
       return Widget.on_mouse_released(this, button, x, y)
     end
   end
+
+  self:set_size(200)
+  self.default_width = self:get_size().x
 
   self:set_label(label or "select")
 end
@@ -164,6 +161,8 @@ end
 function SelectBox:reposition_container()
   local y1 = self.position.y + self:get_height()
   local y2 = self.position.y - self.list:get_height()
+    - (self.border.width * 2)
+    - (self.list_container.border.width * 2)
 
   local _, h = system.get_window_size(core.window)
 
@@ -222,12 +221,22 @@ function SelectBox:on_click(button, x, y)
   end
 end
 
+function SelectBox:update_size_position()
+  SelectBox.super.update_size_position(self)
+  -- if default size scale it
+  if self.size.x == self.default_width then
+    self.size.x = (200 + (style.padding.x * 2)) * SCALE
+    self.default_width = self.size.x
+  end
+  self.size.y = self:get_font():get_height() + (style.padding.y * 2)
+  self.list_container:set_size(
+    self.size.x - self.list_container.border.width,
+    (self.list_container:get_font():get_height() * 3) + (style.padding.y * 2) * 3
+  )
+end
+
 function SelectBox:update()
   if not SelectBox.super.update(self) then return false end
-
-  local font = self:get_font()
-
-  self.size.y = font:get_height() + style.padding.y * 2
 
   if
     self.list_container.visible

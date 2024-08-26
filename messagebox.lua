@@ -58,7 +58,6 @@ function MessageBox:new(parent, title, message, icon, icon_color)
   self.icon = Label(self, "")
   self.message = Label(self, "")
   self.buttons = {}
-  self.last_scale = SCALE
 
   self:set_title(title or "")
   self:set_message(message or "")
@@ -159,7 +158,7 @@ end
 ---Calculate the MessageBox size, centers it relative to screen and shows it.
 function MessageBox:show()
   MessageBox.super.show(self)
-  self:update()
+  self:update_size_position()
   self:centered()
 end
 
@@ -169,17 +168,16 @@ end
 ---@diagnostic disable-next-line
 function MessageBox:on_close(button_id, button) self:hide() end
 
-function MessageBox:update()
-  if not MessageBox.super.update(self) then return false end
+function MessageBox:on_scale_change(new_scale, prev_scale)
+  MessageBox.super.on_scale_change(self, new_scale, prev_scale)
+  MessageBox.icon_huge_font = style.icon_font:copy(50 * SCALE)
+  self.icon.label[1] = MessageBox.icon_huge_font
+end
 
-  if self.last_scale ~= SCALE then
-    MessageBox.icon_huge_font = style.icon_font:copy(50 * SCALE)
-    self.last_scale = SCALE
-    self.icon.label[1] = MessageBox.icon_huge_font
-  elseif self.updated then
-    self.updated = true
-    return
-  end
+function MessageBox:update_size_position()
+  MessageBox.super.update_size_position(self)
+
+  self:reposition_buttons()
 
   local width = math.max(self.title:get_width())
   width = math.max(width, self.message:get_width() + self.icon:get_width())
@@ -195,7 +193,7 @@ function MessageBox:update()
   end
   height = height + self:get_buttons_height()
 
-  self:set_size(width + style.padding.x * 2, height + style.padding.y * 2)
+  self:set_size(width + style.padding.x * 2, height + style.padding.y * 4)
 
   self.title:set_position(
     style.padding.x / 2,
@@ -204,7 +202,7 @@ function MessageBox:update()
 
   self.icon:set_position(
     style.padding.x,
-    self.title:get_bottom() + style.padding.y
+    self.title:get_bottom() + style.padding.y * 2
   )
 
   if self.icon.label[3] == "" then
@@ -226,8 +224,6 @@ function MessageBox:update()
   end
 
   self:reposition_buttons()
-
-  return true
 end
 
 ---We overwrite default draw function to draw the title background.

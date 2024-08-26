@@ -4,6 +4,7 @@
 -- @license MIT
 --
 
+local core = require "core"
 local style = require "core.style"
 local Widget = require "widget"
 local Button = require "widget.button"
@@ -141,6 +142,19 @@ function FoldingBook:set_pane_icon(name, icon, color, hover_color)
     return true
   end
   return false
+end
+
+function FoldingBook:update_size_position()
+  FoldingBook.super.update_size_position(self)
+  core.add_thread(function()
+    local cw = self:get_width()
+    for _, pane in ipairs(self.panes) do
+      if pane.expanded then
+        local ch = pane.container:get_real_height() + 10
+        pane.container:set_size(cw, ch)
+      end
+    end
+  end)
 end
 
 ---Recalculate the position of the elements on resizing or position changes.

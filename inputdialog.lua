@@ -51,8 +51,8 @@ end
 ---@param value string
 function InputDialog:on_save(value) end
 
-function InputDialog:update()
-  if not InputDialog.super.update(self) then return false end
+function InputDialog:update_size_position()
+  InputDialog.super.update_size_position(self)
 
   self.message:set_position(style.padding.x/2, 0)
   self.text:set_position(style.padding.x/2, self.message:get_bottom() + style.padding.y)
@@ -66,22 +66,20 @@ function InputDialog:update()
     self.text:get_bottom() + style.padding.y
   )
 
-  self.panel.size.x = self.panel:get_real_width() + style.padding.x
-  self.panel.size.y = self.panel:get_real_height()
-  self.size.x = self:get_real_width() - (style.padding.x / 2)
-  self.size.y = self:get_real_height() + (style.padding.y / 2)
-
   self.text:set_size(
-    self.size.x - style.padding.x,
+    450 * SCALE,
     self.text:get_real_height()
   )
+
+  self.panel.size.x = self.panel:get_real_width() + style.padding.x / 2
+  self.panel.size.y = self.panel:get_real_height() + style.padding.y
+  self.size.x = self.panel.size.x
+  self.size.y = self:get_real_height()
 
   self.close:set_position(
     self.size.x - self.close.size.x - (style.padding.x / 2),
     style.padding.y / 2
   )
-
-  return true
 end
 
 

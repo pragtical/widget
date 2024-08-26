@@ -156,8 +156,8 @@ function KeybindDialog:on_save(bindings) end
 ---Called when the user clicks on reset
 function KeybindDialog:on_reset() end
 
-function KeybindDialog:update()
-  if not KeybindDialog.super.update(self) then return false end
+function KeybindDialog:update_size_position()
+  KeybindDialog.super.update_size_position(self)
 
   self.shortcuts:set_position(style.padding.x/2, 0)
 
@@ -198,18 +198,23 @@ function KeybindDialog:update()
     self.mouse_intercept:get_bottom() + style.padding.y
   )
 
+  local size = self:get_size()
+
   self.panel.size.x = self.panel:get_real_width() + style.padding.x
   self.panel.size.y = self.panel:get_real_height()
-  self.size.x = self:get_real_width() - (style.padding.x / 2)
-  self.size.y = self:get_real_height() + (style.padding.y / 2)
+  size.x = self:get_real_width() - (style.padding.x / 2)
+  size.y = self:get_real_height() + (style.padding.y / 2)
 
-  self.shortcuts:set_size(self.size.x - style.padding.x)
+  self.shortcuts:set_size(size.x - style.padding.x)
 
-  self.line:set_width(self.size.x - style.padding.x)
+  self.line:set_width(size.x - style.padding.x)
 
-  self.mouse_intercept:set_size(self.size.x - style.padding.x)
+  self.mouse_intercept:set_size(size.x - style.padding.x)
 
-  return true
+  self.close:set_position(
+    size.x - self.close.size.x - (style.padding.x / 2),
+    style.padding.y / 2
+  )
 end
 
 --------------------------------------------------------------------------------
