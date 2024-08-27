@@ -1282,6 +1282,10 @@ function Widget:update_if_scaled()
   if self.current_scale ~= SCALE then
     self.explicit_update = true
     self:update()
+    -- after updating all widgets re-adjust sizes and positions, even if
+    -- this is called directly in update -> on_scale_change it doesn't takes
+    -- into account the sum of all sizing changes so we re-execute it
+    self:update_size_position()
     self.explicit_update = false
   end
 end
