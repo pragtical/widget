@@ -68,6 +68,7 @@ function NoteBook:add_pane(name, label)
 
   if not self.active_pane then
     self.active_pane = pane
+    self:schedule_update()
   end
 
   tab.on_click = function()
@@ -151,6 +152,7 @@ function NoteBook:update()
       end
     elseif not pane.container.visible then
       pane.container:show()
+      self:schedule_update()
     end
   end
 

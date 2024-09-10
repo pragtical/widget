@@ -1332,6 +1332,33 @@ function Widget:update_size_position()
   end
 end
 
+---Flag that indicates if the update schedule is in progress.
+---@type boolean
+local widget_update_scheduled = false
+
+---Schedule a core update and redraw. Since widgets try to not fire updates
+---and draws to child widgets to reduce cpu consumption this function can be
+---used when a re-update and re-draw is strictly needed.
+function Widget:schedule_update()
+  if self.parent and not widget_update_scheduled then
+    -- on older versions of lua coroutine.running() returns nil of on main
+    -- so we also take that into account
+    local co, is_main = coroutine.running()
+    if not co or not is_main then
+      -- already running on a coroutine so we don't need to schedule a new one
+      core.redraw = true
+      return
+    end
+    widget_update_scheduled = true
+    core.add_thread(function()
+      core.redraw = true
+      widget_update_scheduled = false
+    end)
+  elseif not self.parent then
+    core.redraw = true
+  end
+end
+
 function Widget:draw_scrollbar()
   if self.scrollable then
     Widget.super.draw_scrollbar(self)
