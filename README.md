@@ -43,6 +43,7 @@ Components currently provided by this plugin are:
 * [TextBox](textbox.lua)
 * [TreeList](treelist.lua)
 * [Toggle](toggle.lua)
+* [ToggleButton](togglebutton.lua)
 
 You can also write your own re-usable components and share them back for
 everyone to benefit by opening a Pull Request!
