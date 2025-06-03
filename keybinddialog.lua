@@ -49,7 +49,7 @@ function KeybindDialog:new()
   end
 
   self.add = Button(self.panel, "Add")
-  self.add:set_icon("B")
+  self.add:set_icon("]")
   function self.add:on_click()
     this.shortcuts:add_row({"none"})
     this.shortcuts:set_selected(#this.shortcuts.rows)

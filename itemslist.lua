@@ -58,7 +58,7 @@ function ItemsList:new(parent)
   end
 
   self.add = Button(self, "Add")
-  self.add:set_icon("B")
+  self.add:set_icon("]")
   function self.add:on_click()
     if not this.dialog then
       ---@type widget.inputdialog

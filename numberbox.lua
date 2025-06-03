@@ -37,8 +37,10 @@ function NumberBox:new(parent, value, min, max, step)
   self.textbox = TextBox(self, "")
   self.textbox.scrollable = true
 
-  self.decrease_button = Button(self, "-")
-  self.increase_button = Button(self, "+")
+  self.decrease_button = Button(self)
+  self.decrease_button:set_icon("[")
+  self.increase_button = Button(self)
+  self.increase_button:set_icon("]")
 
   self:set_value(value)
 
