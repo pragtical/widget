@@ -51,7 +51,7 @@ function Line:draw()
     self.position.y,
     self.size.x,
     self.size.y,
-    self.foreground_color or style.caret
+    self.border.color or self.foreground_color or style.caret
   )
 
   return true
