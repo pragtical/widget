@@ -237,7 +237,7 @@ function Widget:show_animated(lock_x, lock_y, options)
     self.prev_size.y = 0
   end
 
-  local target_x, target_y = math.floor(self.size.x), math.floor(self.size.y)
+  local target_x, target_y = self.size.x, self.size.y
   self.size.x = lock_x and target_x or 0
   self.size.y = lock_y and target_y or 0
   local properties = {}
@@ -279,11 +279,9 @@ end
 ---@param options? widget.animation.options
 function Widget:hide_animated(lock_x, lock_y, options)
   local x, y = self.size.x, self.size.y
-  local target_x = lock_x and self.size.x or 0
-  local target_y = lock_y and self.size.y or 0
   local properties = {}
-  if not lock_x then properties["x"] = target_x end
-  if not lock_y then properties["y"] = target_y end
+  if not lock_x then properties["x"] = 0 end
+  if not lock_y then properties["y"] = 0 end
   options = options or {}
   self:animate(self.size, properties, {
     name = options.name or "hide_animated",
@@ -1221,6 +1219,7 @@ function Widget:run_animations()
       if not targets[animation.target] then
         local finished = true
         local options = animation.options or {}
+        if not animation.last_value then animation.last_value = {} end
         for name, value in pairs(animation.properties) do
           if animation.target[name] ~= value then
             self:move_towards(animation.target, name, value, options.rate)
@@ -1228,8 +1227,14 @@ function Widget:run_animations()
               options.on_step(animation.target, name, animation.target[name])
             end
             if animation.target[name] ~= value then
-              finished = false
+              -- avoid duplicated values from move_towards and finish the animation
+              if animation.last_value[name] == animation.target[name] then
+                animation.target[name] = value
+              else
+                finished = false
+              end
             end
+            animation.last_value[name] = animation.target[name]
           end
         end
         if finished then
