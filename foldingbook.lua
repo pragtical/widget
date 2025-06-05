@@ -4,7 +4,6 @@
 -- @license MIT
 --
 
-local core = require "core"
 local style = require "core.style"
 local Widget = require "widget"
 local Button = require "widget.button"
@@ -144,19 +143,6 @@ function FoldingBook:set_pane_icon(name, icon, color, hover_color)
   return false
 end
 
-function FoldingBook:update_size_position()
-  FoldingBook.super.update_size_position(self)
-  core.add_thread(function()
-    local cw = self:get_width()
-    for _, pane in ipairs(self.panes) do
-      if pane.expanded then
-        local ch = pane.container:get_real_height() + 10
-        pane.container:set_size(cw, ch)
-      end
-    end
-  end)
-end
-
 ---Recalculate the position of the elements on resizing or position changes.
 function FoldingBook:update()
   if not FoldingBook.super.update(self) then return false end
@@ -187,21 +173,37 @@ function FoldingBook:update()
 
     pane.container.border.color = style.divider
 
-    if pane.expanded and not pane.container.hiding then
+    if pane.expanded and not pane.container.animating then
       pane.container:set_position(cx, cy)
       pane.container:set_size(cw)
       if not pane.container.visible then
-        pane.container:set_size(cw, ch)
-        pane.container:show_animated(true)
+        pane.container:show_animated(true, false, {
+          -- since some widgets can alter width and height while animating we
+          -- keep the target height in sync with actual container height
+          on_step = function (target, name, value, animation)
+            local th = pane.container:get_real_height() + 10
+            animation.properties[name] = th
+          end,
+          on_complete = function()
+            pane.container.animating = false
+          end
+        })
         pane.tab:set_icon("-")
-        pane.container.hiding = false
+        pane.container.animating = true
+      elseif ch > 0 and not pane.container.animating then
+        pane.container:set_size(nil, ch)
       end
-    elseif pane.container.visible and not pane.container.hiding then
+    elseif not pane.container.first_hide then
       pane.tab:set_icon("+")
-      pane.container.hiding = true
+      pane.container:set_size(cw, ch)
+      pane.container:hide()
+      pane.container.first_hide = true
+    elseif pane.container.visible and not pane.container.animating then
+      pane.tab:set_icon("+")
+      pane.container.animating = true
       pane.container:hide_animated(true, false, {
         on_complete = function()
-          pane.container.hiding = false
+          pane.container.animating = false
         end
       })
     end
