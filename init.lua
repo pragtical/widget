@@ -32,7 +32,7 @@ local RootView
 ---Speed of the animation, defaults to 0.5
 ---@field rate? number
 ---Called each time the value of a property changes.
----@field on_step? fun(target:table, property:string, value:number)
+---@field on_step? fun(target:table, property:string, value:number, animation:widget.animation)
 ---Called when the animation finishes.
 ---@field on_complete? fun(widget:widget)
 
@@ -375,11 +375,11 @@ end
 ---Render or calculate the size of the specified range of elements
 ---in a styled text elemet.
 ---@param text widget.styledtext
----@param start_idx integer
----@param end_idx integer
 ---@param x integer
 ---@param y integer
----@param only_calc boolean
+---@param only_calc? boolean
+---@param start_idx? integer
+---@param end_idx? integer
 ---@return integer width
 ---@return integer height
 function Widget:draw_styled_text(text, x, y, only_calc, start_idx, end_idx)
@@ -399,7 +399,7 @@ function Widget:draw_styled_text(text, x, y, only_calc, start_idx, end_idx)
     if
       ele_type == "userdata"
       or
-      (element.container or type(element[1]) == "userdata")
+      (ele_type == "table" and (element.container or type(element[1]) == "userdata"))
     then
       if ele_type == "table" and element.container then
         font = element.container[element.name]
@@ -1224,7 +1224,7 @@ function Widget:run_animations()
           if animation.target[name] ~= value then
             self:move_towards(animation.target, name, value, options.rate)
             if options.on_step then
-              options.on_step(animation.target, name, animation.target[name])
+              options.on_step(animation.target, name, animation.target[name], animation)
             end
             if animation.target[name] ~= value then
               -- avoid duplicated values from move_towards and finish the animation
