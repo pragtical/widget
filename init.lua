@@ -5,6 +5,7 @@
 --
 
 local core = require "core"
+local command = require "core.command"
 local config = require "core.config"
 local style = require "core.style"
 local keymap = require "core.keymap"
@@ -1067,21 +1068,28 @@ function Widget:on_mouse_moved(x, y, dx, dy)
     if not self.mouse_is_hovering  then
       system.set_cursor("arrow")
       self.mouse_is_hovering = true
-      if self.tooltip and #self.tooltip > 0 then
-        widget_showing_tooltip = true
+      if self.tooltip or self.tooltip_command then
         local binding = self.tooltip_command and keymap.get_binding(
           self.tooltip_command
         )
         ---@type table
-        local tooltip = type(self.tooltip) == "table"
-          and {table.unpack(self.tooltip)}
-          or {self.tooltip}
-        if binding then
-          table.insert(tooltip, style.dim)
-          table.insert(tooltip, "  ")
-          table.insert(tooltip, binding)
+        local tooltip = {}
+        if self.tooltip and #self.tooltip > 0 then
+          tooltip = type(self.tooltip) == "table"
+            and {table.unpack(self.tooltip)}
+            or {self.tooltip}
         end
-        core.status_view:show_tooltip(tooltip)
+        if binding then
+          if #tooltip == 0 then
+            table.insert(tooltip, command.prettify_name(self.tooltip_command))
+          end
+          table.insert(tooltip, style.dim)
+          table.insert(tooltip, "  " .. binding)
+        end
+        if(#tooltip > 0) then
+          widget_showing_tooltip = true
+          core.status_view:show_tooltip(tooltip)
+        end
       end
       self:on_mouse_enter(x, y, dx, dy)
       last_hovered_child = self
