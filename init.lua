@@ -78,7 +78,8 @@ local RootView
 ---@field protected visible boolean
 ---@field protected has_focus boolean
 ---@field protected dragged boolean
----@field protected tooltip string
+---@field protected tooltip? string | widget.styledtext
+---@field protected tooltip_command? string
 ---@field protected label string | widget.styledtext
 ---@field protected input_text boolean
 ---@field protected textview widget
@@ -149,7 +150,6 @@ function Widget:new(parent, floating)
   self.dragged = false
   self.font = "font"
   self.force_events = {}
-  self.tooltip = ""
   self.label = ""
   self.input_text = false
   self.textview = nil
@@ -697,9 +697,13 @@ function Widget:set_focus(has_focus)
 end
 
 ---Text displayed when the widget is hovered.
----@param tooltip string
-function Widget:set_tooltip(tooltip)
+---If a command name is also given its associated binding will be displayed
+---as part of the tooltip.
+---@param tooltip? string | widget.styledtext
+---@param command? string
+function Widget:set_tooltip(tooltip, command)
   self.tooltip = tooltip
+  self.tooltip_command = command
 end
 
 ---A text label for the widget, not all widgets support this.
@@ -1063,9 +1067,21 @@ function Widget:on_mouse_moved(x, y, dx, dy)
     if not self.mouse_is_hovering  then
       system.set_cursor("arrow")
       self.mouse_is_hovering = true
-      if #self.tooltip > 0 then
+      if self.tooltip and #self.tooltip > 0 then
         widget_showing_tooltip = true
-        core.status_view:show_tooltip(self.tooltip)
+        local binding = self.tooltip_command and keymap.get_binding(
+          self.tooltip_command
+        )
+        ---@type table
+        local tooltip = type(self.tooltip) == "table"
+          and {table.unpack(self.tooltip)}
+          or {self.tooltip}
+        if binding then
+          table.insert(tooltip, style.dim)
+          table.insert(tooltip, "  ")
+          table.insert(tooltip, binding)
+        end
+        core.status_view:show_tooltip(tooltip)
       end
       self:on_mouse_enter(x, y, dx, dy)
       last_hovered_child = self
