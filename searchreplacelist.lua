@@ -33,6 +33,8 @@ local Widget = require "widget"
 
 ---@class widget.searchreplacelist : widget
 ---@field replacement string?
+---@field case_sensitive boolean
+---@field regex? regex
 ---@field selected integer
 ---@field hovered integer
 ---@field items widget.searchreplacelist.item[]
@@ -51,13 +53,15 @@ local DIFF = {
 
 ---Constructor
 ---@param parent widget
----@param replacement string?
-function SearchReplaceList:new(parent, replacement)
+---@param replacement? string
+---@param search_regex? string
+---@param case_sensitive? boolean
+function SearchReplaceList:new(parent, replacement, search_regex, case_sensitive)
   SearchReplaceList.super.new(self, parent)
 
   self.type_name = "widget.searchreplacelist"
 
-  self.replacement = replacement or nil
+  self.replacement = replacement
   self.selected = 0
   self.hovered = 0
   self.items = {}
@@ -68,6 +72,19 @@ function SearchReplaceList:new(parent, replacement)
   self.total_files = 0
   self.total_results = 0
   self.base_dir = ""
+
+  self:set_search_regex(search_regex, case_sensitive)
+end
+
+---Set the search text regular expression for correct replacement substitutions.
+---@param search_regex? string
+---@param case_sensitive? boolean
+function SearchReplaceList:set_search_regex(search_regex, case_sensitive)
+  if search_regex then
+    self.regex = regex.compile(search_regex, case_sensitive and "" or "i")
+  else
+    self.regex = nil
+  end
 end
 
 ---Overridable event triggered when an item is clicked.
@@ -207,14 +224,21 @@ function SearchReplaceList:toggle_check(pos)
 end
 
 ---Replace a position on a string with a given replacement.
+---@param self widget.searchreplacelist
 ---@param str string
 ---@param s integer
 ---@param e integer
 ---@param rep string
-local function replace_substring(str, s, e, rep)
+---@return string replaced_string
+---@return integer replacement_len
+local function replace_substring(self, str, s, e, rep)
     local head = s <= 1 and "" or string.sub(str, 1, s - 1)
     local tail = e >= #str and "" or string.sub(str, e + 1)
-    return head .. rep .. tail
+    if self.regex then
+      local target = string.sub(str, s, e)
+      rep = self.regex:gsub(target, rep, 1)
+    end
+    return head .. rep .. tail, #rep
 end
 
 ---Applies the replacement on the given item position but not on the real file.
@@ -222,17 +246,20 @@ end
 ---The purpose of this function is to reflect the changes on the listed items.
 ---@param position integer
 function SearchReplaceList:apply_replacement(position)
+  if not self.replacement then return end
   local item = self.items[position]
   if item and item.file and self.replacement then
     local replacement = self.replacement
-    local replacement_len = #self.replacement
+    local replacement_len
     for _, line in ipairs(item.file.lines) do
       local offset = 0
       for _, pos in ipairs(line.positions) do
         local col1 = pos.col1 + offset
         local col2 = pos.col2 + offset
         if pos.checked or type(pos.checked) == "nil" then
-          line.text = replace_substring(line.text, col1, col2, replacement)
+          line.text, replacement_len = replace_substring(
+            self, line.text, col1, col2, replacement
+          )
           local current_len = col2 - col1 + 1
           local len_diff = 0
           if current_len > replacement_len then
@@ -574,8 +601,15 @@ function SearchReplaceList:draw()
       renderer.draw_rect(x, y, found_width, h, found_color)
       x = common.draw_text(font, found_text_color, found_text, "left", x, y, w, h)
       if replacement then
-        renderer.draw_rect(x, y, replacement_width, h, DIFF.ADD)
-        x = common.draw_text(font, DIFF.TEXT, replacement, "left", x, y, w, h)
+        if self.regex then
+          local repl = self.regex:gsub(found_text, replacement, 1)
+          local repl_width = font:get_width(repl or "")
+          renderer.draw_rect(x, y, repl_width, h, DIFF.ADD)
+          x = common.draw_text(font, DIFF.TEXT, repl, "left", x, y, w, h)
+        else
+          renderer.draw_rect(x, y, replacement_width, h, DIFF.ADD)
+          x = common.draw_text(font, DIFF.TEXT, replacement, "left", x, y, w, h)
+        end
       end
       if end_text ~= "" then
         x = common.draw_text(
