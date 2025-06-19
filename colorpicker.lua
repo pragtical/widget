@@ -674,6 +674,10 @@ function ColorPicker:update_size_position()
     self.rgba_notation:get_right() + style.padding.x,
     self.rgba_notation:get_bottom() + style.padding.y
   )
+  -- update the sliders color
+  self.hue_color = self:get_hue_color()
+  self.saturation_color = self:get_saturation_color()
+  self.brightness_color = self:get_brightness_color()
 end
 
 function ColorPicker:draw_selector(x, y, h, color)
