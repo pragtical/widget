@@ -21,12 +21,13 @@ function SingleLineDoc:insert(line, col, text)
 end
 
 ---@class widget.textbox.TextView : core.docview
----@overload fun():widget.textbox.TextView
+---@overload fun(parent:widget):widget.textbox.TextView
 ---@field super core.docview
 local TextView = DocView:extend()
 
-function TextView:new()
+function TextView:new(parent)
   TextView.super.new(self, SingleLineDoc())
+  self.parent = parent
   self.gutter_width = 0
   self.hide_lines_gutter = true
   self.gutter_text_brightness = 0
@@ -112,8 +113,8 @@ local TextBox = Widget:extend()
 function TextBox:new(parent, text, placeholder)
   TextBox.super.new(self, parent)
   self.type_name = "widget.textbox"
-  self.textview = TextView()
-  self.textview.name = parent.name
+  self.textview = TextView(parent) -- allow finding containing parent
+  self.textview.name = self:get_name()
   self.size.x = 200 + (style.padding.x * 2)
   self.textview.size.x = self.size.x
   self.size.y = self:get_font():get_height() + (style.padding.y * 2)
