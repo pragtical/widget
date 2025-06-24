@@ -230,7 +230,7 @@ end
 ---@param options? widget.animation.options
 function Widget:show_animated(lock_x, lock_y, options)
   if not self.parent then
-    if self.size.x <= 0 or self.size.y <= 0 then
+    if self.prev_size.x > 0 or self.prev_size.y > 0 then
       self.size.x = self.prev_size.x
       self.size.y = self.prev_size.y
     end
