@@ -171,6 +171,11 @@ function FoldingBook:update()
       ch = pane.container:get_real_height() + 10
     end
 
+    local tab_width = pane.tab:get_width()
+    if tab_width ~= cw then
+      pane.tab:set_size(cw)
+    end
+
     pane.container.border.color = style.divider
 
     if pane.expanded and not pane.container.animating then
