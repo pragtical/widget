@@ -7,14 +7,30 @@ local style = require "core.style"
 local translate = require "core.doc.translate"
 local Doc = require "core.doc"
 local DocView = require "core.docview"
+local Highlighter = require "core.doc.highlighter"
 local View = require "core.view"
 local Widget = require "widget"
 
+---Customized Highlighter to disable the coroutine.
+---@class widget.textbox.SingleLineHighlighter
+local SingleLineHighlighter = Highlighter:extend()
+
+function SingleLineHighlighter:get_line(idx)
+  return {text=self.doc.lines[1], tokens={"normal", self.doc.lines[1]}}
+end
+
+function SingleLineHighlighter:start() end
 
 ---@class widget.textbox.SingleLineDoc : core.doc
 ---@overload fun():widget.textbox.SingleLineDoc
 ---@field super core.doc
 local SingleLineDoc = Doc:extend()
+
+function SingleLineDoc:reset()
+  SingleLineDoc.super.reset(self)
+  self.highlighter = SingleLineHighlighter(self)
+  self:reset_syntax()
+end
 
 function SingleLineDoc:insert(line, col, text)
   SingleLineDoc.super.insert(self, line, col, text:gsub("\n", ""))
