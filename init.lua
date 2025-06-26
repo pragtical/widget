@@ -221,7 +221,7 @@ function Widget:show()
   -- re-triggers update to make sure everything was properly calculated
   -- and redraw the interface once, maybe something else can be changed
   -- to not require this action, but for now lets do this.
-  self.update_size_position_count = 50
+  self.perform_update_size_position = true
 end
 
 ---Perform an animated show.
@@ -521,7 +521,7 @@ function Widget:set_size(width, height)
     not self.prev_width or not self.prev_height
   then
     self.prev_width, self.prev_height = width, height
-    self.update_size_position_count = 50
+    self.perform_update_size_position = true
   end
 end
 
@@ -1322,11 +1322,9 @@ end
 ---If visible execute the widget calculations and returns true.
 ---@return boolean
 function Widget:update()
-  if self.update_size_position_count and self.update_size_position_count > 0 then
+  if self.perform_update_size_position then
     self:update_size_position()
-    self.update_size_position_count = self.update_size_position_count - 1
-  elseif self.update_size_position_count then
-    self.update_size_position_count = nil
+    self.perform_update_size_position = false
   end
 
   if not self:is_visible() then return false end
