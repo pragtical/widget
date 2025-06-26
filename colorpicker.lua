@@ -414,7 +414,7 @@ function ColorPicker:set_color(color, skip_html, skip_rgba)
     self.html_updating = true
     self.html_notation:set_text(string.format(
       "#%02X%02X%02X%02X",
-      color[1], color[2], color[3], color[4]
+      color[1], color[2], color[3], math.ceil(color[4]) -- ceil needed for PUC Lua
     ))
     self.html_updating = false
   end
@@ -674,10 +674,15 @@ function ColorPicker:update_size_position()
     self.rgba_notation:get_right() + style.padding.x,
     self.rgba_notation:get_bottom() + style.padding.y
   )
-  -- update the sliders color
-  self.hue_color = self:get_hue_color()
-  self.saturation_color = self:get_saturation_color()
-  self.brightness_color = self:get_brightness_color()
+end
+
+function ColorPicker:update()
+  if ColorPicker.super.update(self) then
+    -- update the sliders color
+    self.hue_color = self:get_hue_color()
+    self.saturation_color = self:get_saturation_color()
+    self.brightness_color = self:get_brightness_color()
+  end
 end
 
 function ColorPicker:draw_selector(x, y, h, color)
