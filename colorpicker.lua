@@ -67,15 +67,18 @@ function ColorPicker:new(parent, color)
   self.hue_pos = 0
   self.saturation_pos = 100
   self.brightness_pos = 100
+  self.alpha_pos = 100
   self.alpha = 255
 
   self.hue_color = COLOR_BLACK
   self.saturation_color = COLOR_BLACK
   self.brightness_color = COLOR_BLACK
+  self.alpha_color = COLOR_BLACK
 
   self.hue_mouse_down = false;
   self.saturation_mouse_down = false
   self.brightness_mouse_down = false
+  self.alpha_mouse_down = false
 
   self.selector = { x = 0, y = 0, w = 0, h = 0 }
 
@@ -95,6 +98,8 @@ function ColorPicker:new(parent, color)
       and
       not this.brightness_mouse_down
       and
+      not this.alpha_mouse_down
+      and
       not this.html_updating
     then
       this:set_color(value, true)
@@ -108,6 +113,8 @@ function ColorPicker:new(parent, color)
       not this.saturation_mouse_down
       and
       not this.brightness_mouse_down
+      and
+      not this.alpha_mouse_down
       and
       not this.rgba_updating
     then
@@ -253,7 +260,7 @@ end
 ---@param color string
 ---@return renderer.color? color
 function ColorPicker.color_from_string(color)
-  local s, e, r, g, b, a, base, nibbles;
+  local s, e, r, g, b, a, base;
 
   s, e, r, g, b, a = color:find("#(%x%x)(%x%x)(%x%x)(%x?%x?)")
 
@@ -264,11 +271,24 @@ function ColorPicker.color_from_string(color)
 
     if s then
       base = 16
-      nibbles = true
+      r = r .. r
+      g = g .. g
+      b = b .. b
     else
       s, e, r, g, b, a = color:find(
-        "rgba?%((%d+)%D+(%d+)%D+(%d+)[%s,]-([%.%d]-)%s-%)"
+        "rgba?%(%s*(%d+)%D+(%d+)%D+(%d+)[%s,]-([%.%d]-)%s-%)"
       )
+
+      if not s then
+        local hh, hs, hl
+        s, e, hh, hs, hl, a = color:find(
+          "hsla?%(%s*(%d+)%D+([0-9]+)%%%D+([0-9]+)%%[%s,]-([%.%d]-)%s-%)"
+        )
+        if s then
+          hh, hs, hl = tonumber(hh)/360, tonumber(hs) / 100, tonumber(hl) / 100
+          return ColorPicker.hsl_to_rgb(hh, hs, hl, tonumber(a or "") or 1)
+        end
+      end
     end
   end
 
@@ -285,12 +305,6 @@ function ColorPicker.color_from_string(color)
     end
   else
     a = 0xff
-  end
-
-  if nibbles then
-    r = r * 16
-    g = g * 16
-    b = b * 16
   end
 
   return {r, g, b, a}
@@ -378,14 +392,20 @@ function ColorPicker:get_brightness_color()
   return ColorPicker.color_in_between(color1, color2, range_percent)
 end
 
+---Gets the currently selected color on the transparency bar.
+---@return renderer.color
+function ColorPicker:get_alpha_color()
+  return self:get_color()
+end
+
 ---Gets the currently selected rgba color.
 ---@return renderer.color
 function ColorPicker:get_color()
   return ColorPicker.hsv_to_rgb(
-    self.hue_pos / 100,
-    self.saturation_pos / 100,
-    self.brightness_pos / 100,
-    self.alpha / 255
+    common.clamp(self.hue_pos / 100, 0, 1),
+    common.clamp(self.saturation_pos / 100, 0, 1),
+    common.clamp(self.brightness_pos / 100, 0, 1),
+    common.clamp(self.alpha_pos / 100, 0, 1)
   )
 end
 
@@ -404,10 +424,12 @@ function ColorPicker:set_color(color, skip_html, skip_rgba)
   self.hue_pos = hsva[1] * 100
   self.saturation_pos = hsva[2] * 100
   self.brightness_pos = hsva[3] * 100
+  self.alpha_pos = color[4] / 255 * 100
 
   self.hue_color = self:get_hue_color()
   self.saturation_color = self:get_saturation_color()
   self.brightness_color = self:get_brightness_color()
+  self.alpha_color = self:get_alpha_color()
   self.alpha = color[4]
 
   if not skip_html then
@@ -435,6 +457,8 @@ end
 ---@param alpha number A value from 0 to 255
 function ColorPicker:set_alpha(alpha)
   self.alpha = common.clamp(alpha, 0, 255)
+  self.alpha_pos = self.alpha / 255 * 100
+  self.alpha_color = self:get_color()
 end
 
 ---Draw a hue color bar at given location and size.
@@ -550,6 +574,40 @@ function ColorPicker:draw_brightness(x, y, w, h)
   self:draw_selector(sx, y, cheight, self.brightness_color)
 end
 
+---Draw a transparency color bar at given location and size.
+---@param x number
+---@param y number
+---@param w number
+---@param h number
+function ColorPicker:draw_alpha(x, y, w, h)
+  local sx = x
+  local step = 1
+  local cwidth = 1
+  local cheight = h or 10
+
+  if w < 255 then
+    step = 255 / w
+  else
+    cwidth = w / 255
+  end
+
+  local color = self:get_color()
+  color[4] = 0
+  local transparent = {table.unpack(color)}
+  color[4] = 255
+  local opaque = {table.unpack(color)}
+
+  -- transparent to opaque
+  for i=0, 255, step do
+    local color = ColorPicker.color_in_between(transparent, opaque, i / 255)
+    renderer.draw_rect(x, y, cwidth, cheight, color)
+    x = x + cwidth
+  end
+
+  sx = sx + (w * (self.alpha_pos / 100))
+  self:draw_selector(sx, y, cheight, self.alpha_color)
+end
+
 ---@param self widget.colorpicker
 local function update_control_values(self)
   local color = self:get_color()
@@ -610,8 +668,25 @@ function ColorPicker:on_mouse_pressed(button, x, y, clicks)
     self.brightness_pos = ((self.brightness_pos - self.selector.x) / self.selector.w) * 100
     self.brightness_color = self:get_brightness_color()
     self.brightness_mouse_down = true
+  elseif
+    x >= self.selector.x and x <= self.selector.x + self.selector.w
+    and
+    y >= self.selector.y + style.padding.y * 3 + self.selector.h * 3
+    and
+    y <= self.selector.y + style.padding.y * 3 + (self.selector.h * 5)
+  then
+    local sx, sw = self.selector.x, self.selector.w
+    self.alpha_pos = common.clamp(x, sx, sx + sw)
+    self.alpha_pos = ((self.alpha_pos - self.selector.x) / self.selector.w) * 100
+    self.alpha_color = self:get_alpha_color()
+    self.alpha = self.alpha_color[4]
+    self.alpha_mouse_down = true
   end
-  if self.hue_mouse_down or self.saturation_mouse_down or self.brightness_mouse_down then
+  if
+    self.hue_mouse_down or self.saturation_mouse_down
+    or
+    self.brightness_mouse_down or self.alpha_mouse_down
+  then
     self:capture_mouse()
     update_control_values(self)
   end
@@ -619,13 +694,18 @@ function ColorPicker:on_mouse_pressed(button, x, y, clicks)
 end
 
 function ColorPicker:on_mouse_released(button, x, y)
-  if self.hue_mouse_down or self.saturation_mouse_down or self.brightness_mouse_down then
+  if
+    self.hue_mouse_down or self.saturation_mouse_down
+    or
+    self.brightness_mouse_down or self.alpha_mouse_down
+  then
     self:release_mouse()
   end
 
   self.hue_mouse_down = false
   self.saturation_mouse_down = false
   self.brightness_mouse_down = false
+  self.alpha_mouse_down = false
 
   if not ColorPicker.super.on_mouse_released(self, button, x, y) then
     return false
@@ -642,19 +722,32 @@ function ColorPicker:on_mouse_moved(x, y, dx, dy)
     self.hue_color = self:get_hue_color()
     self.saturation_color = self:get_saturation_color()
     self.brightness_color = self:get_brightness_color()
+    self.alpha_color = self:get_alpha_color()
   elseif self.saturation_mouse_down then
     local sx, sw = self.selector.x, self.selector.w
     self.saturation_pos = common.clamp(x, sx, sx + sw)
     self.saturation_pos = ((self.saturation_pos - self.selector.x) / self.selector.w) * 100
     self.saturation_color = self:get_saturation_color()
     self.brightness_color = self:get_brightness_color()
+    self.alpha_color = self:get_alpha_color()
   elseif self.brightness_mouse_down then
     local sx, sw = self.selector.x, self.selector.w
     self.brightness_pos = common.clamp(x, sx, sx + sw)
     self.brightness_pos = ((self.brightness_pos - self.selector.x) / self.selector.w) * 100
     self.brightness_color = self:get_brightness_color()
+    self.alpha_color = self:get_alpha_color()
+  elseif self.alpha_mouse_down then
+    local sx, sw = self.selector.x, self.selector.w
+    self.alpha_pos = common.clamp(x, sx, sx + sw)
+    self.alpha_pos = ((self.alpha_pos - self.selector.x) / self.selector.w) * 100
+    self.alpha_color = self:get_alpha_color()
+    self.alpha = self.alpha_color[4]
   end
-  if self.hue_mouse_down or self.saturation_mouse_down or self.brightness_mouse_down then
+  if
+    self.hue_mouse_down or self.saturation_mouse_down
+    or
+    self.brightness_mouse_down or self.alpha_mouse_down
+  then
     update_control_values(self)
   else
     return ColorPicker.super.on_mouse_moved(self, x, y, dx, dy)
@@ -665,11 +758,11 @@ end
 function ColorPicker:update_size_position()
   ColorPicker.super.update_size_position(self)
   self.selector.h = 10 * SCALE
-  local x, y = 0, style.padding.y * 3 + self.selector.h * 4
+  local x, y = 0, style.padding.y * 4 + self.selector.h * 5
   self.html_notation:set_position(x, y)
   self.html_notation:set_size(150 * SCALE)
-  self.rgba_notation:set_position(self.html_notation:get_right() + style.padding.x, y)
-  self.rgba_notation:set_size(150 * SCALE)
+  self.rgba_notation:set_position(self.html_notation:get_right() + style.padding.x / 2, y)
+  self.rgba_notation:set_size((150 * SCALE) + style.padding.x * 2)
   self:set_size(
     self.rgba_notation:get_right() + style.padding.x,
     self.rgba_notation:get_bottom() + style.padding.y
@@ -682,6 +775,8 @@ function ColorPicker:update()
     self.hue_color = self:get_hue_color()
     self.saturation_color = self:get_saturation_color()
     self.brightness_color = self:get_brightness_color()
+    self.alpha_color = self:get_alpha_color()
+    self.alpha = self.alpha_color[4]
   end
 end
 
@@ -724,13 +819,20 @@ function ColorPicker:draw()
     self.selector.h
   )
 
+  self:draw_alpha(
+    self.selector.x,
+    self.selector.y + style.padding.y * 3 + self.selector.h * 3,
+    self.selector.w,
+    self.selector.h
+  )
+
   local c = self:get_color()
 
   renderer.draw_rect(
     self.selector.x + style.padding.x + self.selector.w,
     self.selector.y,
     75 * SCALE,
-    (self.selector.y + style.padding.y * 2 + self.selector.h * 3)
+    (self.selector.y + style.padding.y * 3 + self.selector.h * 4)
       - self.selector.y,
     c
   )
