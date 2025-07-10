@@ -875,13 +875,13 @@ function ListBox:draw()
 
   local ox, oy = self:get_content_offset()
 
-  oy = oy - opy
+  oy = oy - opy - self.parent.scroll.y
   if #self.visible_rows > 0 then
     oy = oy + (self.rows[self.visible_rows[1]].y - new_height)
   end
   oy = oy - (self.position.y - self.parent.position.y)
 
-  ox = ox - opx
+  ox = ox - opx - self.parent.scroll.x
   ox = ox - (self.position.x - self.parent.position.x)
 
   local x = ox + self.position.x + self.border.width
