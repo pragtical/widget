@@ -23,6 +23,7 @@ Components currently provided by this plugin are:
 * [CheckBox](checkbox.lua)
 * [ColorPicker](colorpicker.lua)
 * [ColorPickerDialog](colorpickerdialog.lua)
+* [Container](container.lua)
 * [Dialog](dialog.lua)
 * [FilePicker](filepicker.lua)
 * [FoldingBook](foldingbook.lua)
@@ -41,9 +42,9 @@ Components currently provided by this plugin are:
 * [SearchReplaceList](searchreplacelist.lua)
 * [SelectBox](selectbox.lua)
 * [TextBox](textbox.lua)
-* [TreeList](treelist.lua)
 * [Toggle](toggle.lua)
 * [ToggleButton](togglebutton.lua)
+* [TreeList](treelist.lua)
 
 You can also write your own re-usable components and share them back for
 everyone to benefit by opening a Pull Request!
@@ -51,7 +52,7 @@ everyone to benefit by opening a Pull Request!
 ## Installation
 
 The library is a meson subproject of the Pragtical editor so no additional steps
-are neccesary to install.
+are necessary to install.
 
 ## Usage
 
