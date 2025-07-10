@@ -9,7 +9,7 @@ local style = require "core.style"
 local Widget = require "widget"
 
 ---@class widget.label : widget
----@overload fun(parent:widget?, label?:string):widget.label
+---@overload fun(parent:widget?, label?:string, word_wrap?:boolean):widget.label
 ---@field clickable boolean
 ---@field word_wrap boolean
 local Label = Widget:extend()
