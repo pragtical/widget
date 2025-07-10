@@ -27,6 +27,11 @@ local RootView
 ---@field public dx number Dragging initial x position
 ---@field public dy number Dragging initial y position
 
+---Represents a padding attribute.
+---@class widget.padding
+---@field public x number
+---@field public y number
+
 ---@class widget.animation.options
 ---Prevents duplicated animations from getting added.
 ---@field name? string
