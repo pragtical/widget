@@ -18,7 +18,7 @@ local MessageBox = require "widget.messagebox"
 ---@alias widget.listbox.drawcol fun(self, row, x, y, font, color, only_calc)
 ---@alias widget.listbox.filtercb fun(self:widget.listbox, idx:integer, row:widget.listbox.row, data:any):number?
 
----@alias widget.listbox.row table<integer, renderer.font|widget.fontreference|renderer.color|integer|string|widget.listbox.drawcol>
+---@alias widget.listbox.row table<integer, renderer.font|widget.fontreference|renderer.color|widget.colorreference|integer|string|widget.listbox.drawcol>
 
 ---@alias widget.listbox.colpos table<integer,integer>
 
@@ -600,7 +600,7 @@ function ListBox:draw_row_range(ridx, row, start_idx, end_idx, x, y, only_calc)
       ele_type == "userdata"
       or
       (
-        ele_type == "table"
+        ele_type == "table" and (not element.type or element.type == "font")
         and
         (element.container or type(element[1]) == "userdata")
       )
@@ -610,8 +610,12 @@ function ListBox:draw_row_range(ridx, row, start_idx, end_idx, x, y, only_calc)
       else
         font = element
       end
-    elseif ele_type == "table" then
-      color = element
+    elseif ele_type == "table" and (not element.type or element.type == "color") then
+      if element.type then
+        color = element.container[element.name]
+      else
+        color = element
+      end
     elseif element == ListBox.NEWLINE then
       y = y + font:get_height()
       nx = x

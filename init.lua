@@ -47,8 +47,15 @@ local RootView
 ---@field properties table<string,number>
 ---@field options? widget.animation.options
 
+---Represents a reference to a color stored elsewhere.
+---@class widget.colorreference
+---@field public type "color"
+---@field public container table<string, renderer.color>
+---@field public name string
+
 ---Represents a reference to a font stored elsewhere.
 ---@class widget.fontreference
+---@field public type "font"
 ---@field public container table<string, renderer.font>
 ---@field public name string
 
@@ -58,7 +65,7 @@ local RootView
 ---| "left"
 ---| "right"
 
----@alias widget.styledtext table<integer, renderer.font|widget.fontreference|renderer.color|integer|string>
+---@alias widget.styledtext table<integer, renderer.font|widget.fontreference|renderer.color|widget.colorreference|integer|string>
 
 ---A base widget
 ---@class widget : core.view
@@ -405,15 +412,23 @@ function Widget:draw_styled_text(text, x, y, only_calc, start_idx, end_idx)
     if
       ele_type == "userdata"
       or
-      (ele_type == "table" and (element.container or type(element[1]) == "userdata"))
+      (
+        ele_type == "table" and (not element.type or element.type == "font")
+        and
+        (element.container or type(element[1]) == "userdata")
+      )
     then
       if ele_type == "table" and element.container then
         font = element.container[element.name]
       else
         font = element
       end
-    elseif ele_type == "table" then
-      color = element
+    elseif ele_type == "table" and (not element.type or element.type == "color") then
+      if element.container then
+        color = element.container[element.name]
+      else
+        color = element
+      end
     elseif element == Widget.NEWLINE then
       y = y + font:get_height()
       nx = x
