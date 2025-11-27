@@ -215,9 +215,11 @@ function SelectBox:on_click(button, x, y)
 
     self.list_container.border.color = style.caret
 
-    self.list_container:toggle_visible(true, true)
-
-    self.list:resize_to_parent()
+    self.list_container:toggle_visible(true, true, false, {
+      on_step = function()
+        self.list:resize_to_parent()
+      end
+    })
   end
 end
 
