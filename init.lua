@@ -134,6 +134,8 @@ local widget_showing_tooltip = false
 function Widget:new(parent, floating)
   Widget.super.new(self)
 
+  self.updated = false -- flag to ensure we updated before drawing.
+
   self.v_scrollbar = ScrollBar(self, {direction = "v", alignment = "e"})
   self.h_scrollbar = ScrollBar(self, {direction = "h", alignment = "e"})
 
@@ -1367,6 +1369,10 @@ function Widget:update()
     end
   end
 
+  if not self.updated and self.size.y > 0 and self.size.x > 0 then
+    self.updated = true
+  end
+
   return true
 end
 
@@ -1386,8 +1392,8 @@ local widget_update_scheduled = false
 ---Schedule a core update and redraw. Since widgets try to not fire updates
 ---and draws to child widgets to reduce cpu consumption this function can be
 ---used when a re-update and re-draw is strictly needed.
-function Widget:schedule_update()
-  if self.parent and not widget_update_scheduled then
+function Widget:schedule_update(delayed)
+  if (self.parent or delayed) and not widget_update_scheduled then
     -- on older versions of lua coroutine.running() returns nil of on main
     -- so we also take that into account
     local co, is_main = coroutine.running()
@@ -1398,10 +1404,11 @@ function Widget:schedule_update()
     end
     widget_update_scheduled = true
     core.add_thread(function()
+      if delayed then coroutine.yield(0.1) end
       core.redraw = true
       widget_update_scheduled = false
     end)
-  elseif not self.parent then
+  elseif not self.parent or delayed then
     core.redraw = true
   end
 end
@@ -1415,7 +1422,13 @@ end
 ---If visible draw the widget and returns true.
 ---@return boolean
 function Widget:draw()
-  if not self:is_visible() then return false end
+  if
+    not self:is_visible() or not self.updated
+    or
+    self.size.x <= 0 or self.size.y <= 0
+  then
+    return false
+  end
 
   Widget.super.draw(self)
 
