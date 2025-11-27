@@ -777,7 +777,9 @@ function ColorPicker:update()
     self.brightness_color = self:get_brightness_color()
     self.alpha_color = self:get_alpha_color()
     self.alpha = self.alpha_color[4]
+    return true
   end
+  return false
 end
 
 function ColorPicker:draw_selector(x, y, h, color)

@@ -838,6 +838,8 @@ function ListBox:update()
   if self.last_offset ~= oy then
     self:set_visible_rows()
     self.last_offset = oy
+  elseif #self.rows > 0 and #self.visible_rows <= 0 then
+    self:set_visible_rows()
   end
 
   return true
@@ -845,10 +847,6 @@ end
 
 function ListBox:draw()
   if not ListBox.super.draw(self) then return false end
-
-  if #self.rows > 0 and #self.visible_rows <= 0 then
-    self:set_visible_rows()
-  end
 
   local new_width = 0
   local new_height = 0

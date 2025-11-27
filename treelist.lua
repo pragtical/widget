@@ -304,7 +304,7 @@ function TreeList:on_mouse_left()
 end
 
 function TreeList:update()
-  if not self:is_visible() then return end
+  if not TreeList.super.update(self) then return false end
 
   local duration = system.get_time() - self.tooltip.begin
   local tooltip_delay = 0.5
@@ -324,7 +324,7 @@ function TreeList:update()
     self.last_scroll_y = self.scroll.y
   end
 
-  TreeList.super.update(self)
+  return true
 end
 
 function TreeList:get_scrollable_size()
@@ -499,7 +499,7 @@ function TreeList:draw_item(item, active, hovered, x, y, w, h)
 end
 
 function TreeList:draw()
-  if not TreeList.super.draw(self) then return end
+  if not TreeList.super.draw(self) then return false end
 
   local position, ox = self:get_position(), self:get_content_offset()
   local _y, _h, sw = position.y, self.size.y, 0
@@ -525,6 +525,8 @@ function TreeList:draw()
   then
     core.root_view:defer_draw(self.draw_tooltip, self)
   end
+
+  return true
 end
 
 ---@param item? widget.treelist.item

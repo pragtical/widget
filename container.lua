@@ -164,17 +164,20 @@ local function position_vertical(self)
 end
 
 function Container:update()
-  if self.old_size.x ~= self.size.x or self.old_size.y ~= self.size.y then
-    if self.direction == Container.direction.HORIZONTAL then
-      position_horizontal(self)
-    else
-      position_vertical(self)
+  if Container.super.update(self) then
+    if self.old_size.x ~= self.size.x or self.old_size.y ~= self.size.y then
+      if self.direction == Container.direction.HORIZONTAL then
+        position_horizontal(self)
+      else
+        position_vertical(self)
+      end
+      self:set_size(nil, self:get_real_height() + self.padding.y * SCALE)
+      self.old_size.x = self.size.x
+      self.old_size.y = self.size.y
     end
-    self:set_size(nil, self:get_real_height() + self.padding.y * SCALE)
-    self.old_size.x = self.size.x
-    self.old_size.y = self.size.y
+    return true
   end
-  Container.super.update(self)
+  return false
 end
 
 

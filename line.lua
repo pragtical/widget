@@ -39,12 +39,18 @@ function Line:set_width(width)
   self.size.x = width
 end
 
-function Line:draw()
-  if not self:is_visible() then return false end
+function Line:update()
+  if not Line.super.update(self) then return false end
 
   if not self.custom_width then
     self.size.x = self.parent.size.x - (self.padding * 2)
   end
+
+  return true
+end
+
+function Line:draw()
+  if not Line.super.draw(self) then return false end
 
   renderer.draw_rect(
     self.position.x + self.padding,

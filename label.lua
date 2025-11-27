@@ -155,9 +155,11 @@ function Label:update_size_position()
 end
 
 function Label:update()
-  if Label.super.update(self) and self.word_wrap then
+  local updated = Label.super.update(self)
+  if updated and self.word_wrap then
     word_wrap(self)
   end
+  return updated
 end
 
 function Label:draw()

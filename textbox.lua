@@ -285,6 +285,8 @@ function TextBox:on_text_change(action, ...) end
 function TextBox:update()
   if not TextBox.super.update(self) then return false end
 
+  self.border.color = self.hover_border or style.text
+
   if
     self.drag_select
     or
@@ -306,10 +308,7 @@ function TextBox:update()
 end
 
 function TextBox:draw()
-  if not self:is_visible() then return false end
-
-  self.border.color = self.hover_border or style.text
-  TextBox.super.draw(self)
+  if not TextBox.super.draw(self) then return false end
 
   core.push_clip_rect(
     self.position.x,

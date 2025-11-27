@@ -140,7 +140,9 @@ function ToggleButton:update_size_position()
   self:set_label(self.label)
 end
 
-function ToggleButton:draw()
+function ToggleButton:update()
+  if not ToggleButton.super.update(self) then return false end
+
   if self.toggle_hovered or self.enabled then
     self.background_color = style.line_highlight
   else
@@ -149,6 +151,10 @@ function ToggleButton:draw()
 
   self.border.color = self.enabled and style.caret or style.text
 
+  return true
+end
+
+function ToggleButton:draw()
   if not ToggleButton.super.draw(self) then return false end
 
   local font = self:get_font()
