@@ -37,13 +37,14 @@ function SingleLineDoc:insert(line, col, text)
 end
 
 ---@class widget.textbox.TextView : core.docview
----@overload fun(parent:widget):widget.textbox.TextView
+---@overload fun(parent:widget,subparent:widget):widget.textbox.TextView
 ---@field super core.docview
 local TextView = DocView:extend()
 
-function TextView:new(parent)
+function TextView:new(parent, subparent)
   TextView.super.new(self, SingleLineDoc())
   self.parent = parent
+  self.subparent = subparent
   self.gutter_width = 0
   self.hide_lines_gutter = true
   self.gutter_text_brightness = 0
@@ -94,6 +95,14 @@ function TextView:draw_line_highlight()
   -- no-op function to disable this functionality
 end
 
+function TextView:draw_line_text(line, x, y)
+  TextView.super.draw_line_text(self, line, x, y)
+  local placeholder = self.subparent.placeholder or ""
+  if placeholder ~= "" and #self.doc.lines[line] < 2 then
+    renderer.draw_text(self:get_font(), placeholder, x, y, style.dim)
+  end
+end
+
 -- Overwrite this function just to disable the core.push_clip_rect
 function TextView:draw()
   self:draw_background(style.background)
@@ -123,19 +132,17 @@ end
 ---@overload fun(parent?:widget, text?:string, placeholder?:string):widget.textbox
 ---@field textview widget.textbox.TextView
 ---@field placeholder string
----@field placeholder_active boolean
 local TextBox = Widget:extend()
 
 function TextBox:new(parent, text, placeholder)
   TextBox.super.new(self, parent)
   self.type_name = "widget.textbox"
-  self.textview = TextView(parent) -- allow finding containing parent
+  self.textview = TextView(parent, self) -- allow finding containing parent
   self.textview.name = self:get_name()
   self.size.x = 200 + (style.padding.x * 2)
   self.textview.size.x = self.size.x
   self.size.y = self:get_font():get_height() + (style.padding.y * 2)
   self.placeholder = placeholder or ""
-  self.placeholder_active = false
   -- this widget is for text input
   self.input_text = true
   self.cursor = "ibeam"
@@ -143,18 +150,13 @@ function TextBox:new(parent, text, placeholder)
   self.drag_select = false
 
   if text ~= "" then
-    self.textview:set_text(text, select)
-  else
-    self.placeholder_active = true
-    self.textview:set_text(self.placeholder)
+    self.textview:set_text(text)
   end
 
   local this = self
 
   function self.textview.doc:on_text_change()
-    if not this.placeholder_active then
-      this:on_change(this:get_text())
-    end
+    this:on_change(this:get_text())
   end
 
   -- more granular listening of text changing events
@@ -184,9 +186,6 @@ end
 --- Get the text displayed on the textbox.
 ---@return string
 function TextBox:get_text()
-  if self.placeholder_active then
-    return ""
-  end
   return self.textview:get_text()
 end
 
@@ -249,10 +248,6 @@ end
 
 function TextBox:activate()
   self.hover_border = style.caret
-  if self.placeholder_active then
-    self.placeholder_active = false
-    self:set_text("")
-  end
   self.active = true
   core.request_cursor("ibeam")
 end
@@ -260,10 +255,6 @@ end
 function TextBox:deactivate()
   self.hover_border = nil
   self.drag_select = false
-  if self:get_text() == "" then
-    self.placeholder_active = true
-    self:set_text(self.placeholder)
-  end
   self.active = false
   core.request_cursor("arrow")
 end

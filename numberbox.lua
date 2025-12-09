@@ -55,7 +55,6 @@ function NumberBox:new(parent, value, min, max, step)
         end)
       end
     else
-      this.textbox.placeholder_active = false
       this.current_text = this.textbox:get_text()
       this:on_change(tonumber(this.current_text))
     end
@@ -111,7 +110,6 @@ function NumberBox:set_value(value)
   else
     self.textbox:set_text(tostring(self.minimum))
   end
-  self.textbox.placeholder_active = false
   self.current_text = self.textbox:get_text()
   self:on_change(tonumber(self.current_text))
 end
@@ -139,7 +137,6 @@ end
 
 ---Decrease the current value.
 function NumberBox:decrease()
-  self.textbox.placeholder_active = false
   local value = tonumber(self.textbox:get_text()) or self.maximum
   if (value - self.step) >= self.minimum then
     self:set_value(value - self.step)
@@ -148,7 +145,6 @@ end
 
 ---Increase the current value.
 function NumberBox:increase()
-  self.textbox.placeholder_active = false
   local value = tonumber(self.textbox:get_text()) or self.minimum
   if (value + self.step) <= self.maximum then
     self:set_value(value + self.step)
