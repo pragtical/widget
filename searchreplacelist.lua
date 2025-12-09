@@ -619,7 +619,7 @@ function SearchReplaceList:draw()
             style.syntax[ttype] or text_color,
             ttext, "left", x, y, w, h
           )
-          if x > self.size.x then break end
+          if x > self.size.x + self.position.x then break end
         end
       else
         if start_text ~= "" then
