@@ -7,6 +7,8 @@
 local core = require "core"
 local common = require "core.common"
 local style = require "core.style"
+local syntax = require "core.syntax"
+local tokeninzer = require "core.tokenizer"
 local Widget = require "widget"
 
 ---@class widget.searchreplacelist.lineposition
@@ -41,6 +43,7 @@ local Widget = require "widget"
 ---@field total_files integer
 ---@field total_results integer
 ---@field base_dir string
+---@field syntax_highlighting boolean if true enables syntax highlight for searches
 ---@overload fun(parent:widget, find:string, replacement:string?):widget.searchreplacelist
 local SearchReplaceList = Widget:extend()
 
@@ -63,6 +66,7 @@ function SearchReplaceList:new(parent, replacement, search_regex, case_sensitive
 
   self.replacement = replacement
   self.selected = 0
+  self.syntax_highlighting = false
   self.hovered = 0
   self.items = {}
   self.max_width = 0
@@ -504,6 +508,8 @@ function SearchReplaceList:draw()
 
   self.max_width = 0
 
+  local syn = nil
+  local last_file_path = nil
   for i, item, x,y,w,h in self:each_visible_item() do
     if item.file then
       file_path = common.relative_path(self.base_dir, item.file.path)
@@ -561,6 +567,13 @@ function SearchReplaceList:draw()
     local all_text = ""
 
     if item.line then
+      local fpath = item.parent.file.path
+      if not self.replacement and self.syntax_highlighting and fpath ~= last_file_path then
+        syn = syntax.get(fpath)
+        if syn == syntax.plain_text_syntax then syn = nil end
+        last_file_path = fpath
+      end
+
       local start_pos, end_pos = 1, #text
       local prefix, postfix = "", ""
       -- truncate long lines to keep good rendering performance
@@ -587,40 +600,62 @@ function SearchReplaceList:draw()
         ""
       local found_text = text:sub(item.position.col1, item.position.col2)
       local found_width = style.font:get_width(found_text)
-      if start_text ~= "" then
-        x = common.draw_text(
-          font,
-          text_color,
-          start_text,
-          "left",
-          x, y, w, h
+
+      all_text = item.line.line .. ": " .. start_text .. found_text .. end_text
+
+      if syn then
+        local rx = x
+        if start_text ~= "" then
+          rx = rx + font:get_width(start_text)
+        end
+        local highlight = i == self.selected and style.line_highlight or style.selection
+        renderer.draw_rect(rx, y, found_width, h, highlight)
+        local tokens = tokeninzer.tokenize(
+          syn, start_text .. found_text .. end_text .. "\n", ""
         )
-      end
-      local found_color = not replacement and style.dim or DIFF.DEL
-      local found_text_color = not replacement and text_color or DIFF.TEXT
-      renderer.draw_rect(x, y, found_width, h, found_color)
-      x = common.draw_text(font, found_text_color, found_text, "left", x, y, w, h)
-      if replacement then
-        if self.regex then
-          local repl = self.regex:gsub(found_text, replacement, 1)
-          local repl_width = font:get_width(repl or "")
-          renderer.draw_rect(x, y, repl_width, h, DIFF.ADD)
-          x = common.draw_text(font, DIFF.TEXT, repl, "left", x, y, w, h)
-        else
-          renderer.draw_rect(x, y, replacement_width, h, DIFF.ADD)
-          x = common.draw_text(font, DIFF.TEXT, replacement, "left", x, y, w, h)
+        for _, ttype, ttext in tokeninzer.each_token(tokens) do
+          x = common.draw_text(
+            style.font,
+            style.syntax[ttype] or text_color,
+            ttext, "left", x, y, w, h
+          )
+          if x > self.size.x then break end
+        end
+      else
+        if start_text ~= "" then
+          x = common.draw_text(
+            font,
+            text_color,
+            start_text,
+            "left",
+            x, y, w, h
+          )
+        end
+        local found_color = not replacement and style.dim or DIFF.DEL
+        local found_text_color = not replacement and text_color or DIFF.TEXT
+        renderer.draw_rect(x, y, found_width, h, found_color)
+        x = common.draw_text(font, found_text_color, found_text, "left", x, y, w, h)
+        if replacement then
+          if self.regex then
+            local repl = self.regex:gsub(found_text, replacement, 1)
+            local repl_width = font:get_width(repl or "")
+            renderer.draw_rect(x, y, repl_width, h, DIFF.ADD)
+            x = common.draw_text(font, DIFF.TEXT, repl, "left", x, y, w, h)
+          else
+            renderer.draw_rect(x, y, replacement_width, h, DIFF.ADD)
+            x = common.draw_text(font, DIFF.TEXT, replacement, "left", x, y, w, h)
+          end
+        end
+        if end_text ~= "" then
+          x = common.draw_text(
+            font,
+            text_color,
+            end_text,
+            "left",
+            x, y, w, h
+          )
         end
       end
-      if end_text ~= "" then
-        x = common.draw_text(
-          font,
-          text_color,
-          end_text,
-          "left",
-          x, y, w, h
-        )
-      end
-      all_text = item.line.line .. ": " .. start_text .. found_text .. end_text
     else
       x = common.draw_text(font, text_color, text, "left", x, y, w, h)
       all_text = file_path
