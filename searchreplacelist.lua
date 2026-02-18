@@ -76,6 +76,9 @@ function SearchReplaceList:new(parent, replacement, search_regex, case_sensitive
   self.total_files = 0
   self.total_results = 0
   self.base_dir = ""
+  self.last_min = 0
+  self.last_max = 0
+  self.tokens_cache = {}
 
   self:set_search_regex(search_regex, case_sensitive)
 end
@@ -132,6 +135,9 @@ function SearchReplaceList:clear()
   self.hovered_expander = false
   self.total_files = 0
   self.total_results = 0
+  self.last_min = 0
+  self.last_max = 0
+  self.tokens_cache = {}
 end
 
 ---Uncollapse a file line results.
@@ -373,6 +379,10 @@ function SearchReplaceList:each_visible_item()
     local lh = self:get_line_height()
     local x, y = self:get_content_offset()
     local min, max = self:get_visible_items_range()
+    if self.last_min ~= min or self.last_max ~= max then
+      self.tokens_cache = {}
+    end
+    self.last_min, self.last_max = min, max
     y = y + lh * (min - 1)
     for i = min, max do
       local item = self.items[i]
@@ -610,9 +620,15 @@ function SearchReplaceList:draw()
         end
         local highlight = i == self.selected and style.line_highlight or style.selection
         renderer.draw_rect(rx, y, found_width, h, highlight)
-        local tokens = tokeninzer.tokenize(
-          syn, start_text .. found_text .. end_text .. "\n", ""
-        )
+        local tokens = self.tokens_cache[i]
+        if not tokens then
+          tokens = tokeninzer.tokenize(
+            syn,
+            utf8extra.clean(start_text .. found_text .. end_text, "") .. "\n",
+            ""
+          )
+          self.tokens_cache[i] = tokens
+        end
         for _, ttype, ttext in tokeninzer.each_token(tokens) do
           x = common.draw_text(
             style.font,
