@@ -1118,6 +1118,10 @@ function Widget:on_mouse_moved(x, y, dx, dy)
     end
   else
     self:on_mouse_leave(x, y, dx, dy)
+    if widget_showing_tooltip then
+      widget_showing_tooltip = false
+      core.status_view:remove_tooltip()
+    end
     self.mouse_is_hovering = false
     is_over = false
   end
@@ -1611,6 +1615,10 @@ function Widget.override_rootview()
             return true
           end
         end
+      end
+      if last_hovered_child and not last_hovered_child:mouse_on_top(x, y) then
+        last_hovered_child:on_mouse_moved(x, y, dx, dy)
+        last_hovered_child = nil
       end
     end
     return root_view_on_mouse_moved(self, x, y, dx, dy)
