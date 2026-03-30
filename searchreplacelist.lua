@@ -165,6 +165,7 @@ function SearchReplaceList:expand(position, count_results)
     end
     common.splice(self.items, insert_pos, 0, items)
     parent.file.expanded = true
+    self.tokens_cache = {}
   end
 end
 
@@ -186,6 +187,7 @@ function SearchReplaceList:contract(position)
     end
     common.splice(self.items, start_pos, end_pos)
     parent.file.expanded = false
+    self.tokens_cache = {}
   end
 end
 
