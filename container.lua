@@ -4,6 +4,7 @@
 -- @license MIT
 --
 
+local core = require "core"
 local style = require "core.style"
 local Widget = require "widget"
 
@@ -174,6 +175,7 @@ function Container:update()
       self:set_size(nil, self:get_real_height() + self.padding.y * SCALE)
       self.old_size.x = self.size.x
       self.old_size.y = self.size.y
+      core.redraw = true
     end
     return true
   end
