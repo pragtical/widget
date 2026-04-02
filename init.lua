@@ -1257,6 +1257,10 @@ end
 ---Runs all registered animations removing duplicated and finished ones.
 function Widget:run_animations()
   if #self.animations > 0 then
+    -- ensure animations like show_animated are more consistently rendered
+    core.redraw = true
+    self:schedule_update(true)
+
     ---@type table<widget.animation, widget.animation>
     local duplicates = {}
 
