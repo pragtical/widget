@@ -14,7 +14,11 @@ local Widget = require "widget"
 ---@field label string
 ---@field data any?
 ---@field expanded boolean?
+---@field expanded_original_stored boolean?
+---@field expanded_original boolean?
 ---@field visible boolean?
+---@field visible_original_stored boolean?
+---@field visible_original boolean?
 ---@field tooltip string?
 ---@field depth integer?
 ---@field childs widget.treelist.item[]?
@@ -30,6 +34,8 @@ local Widget = require "widget"
 ---@field private scroll_width integer
 ---@overload fun(parent:widget?):widget.treelist
 local TreeList = Widget:extend()
+
+---@alias widget.treelist.filtercb fun(self:widget.treelist, item:widget.treelist.item):number|boolean?
 
 ---Constructor
 ---@param parent? widget
@@ -69,6 +75,84 @@ function TreeList:clear()
   self.hovered_item = nil
 end
 
+local function restore_item(item)
+  if item.visible_original_stored then
+    item.visible = item.visible_original
+    item.visible_original = nil
+    item.visible_original_stored = nil
+  end
+  if item.expanded_original_stored then
+    item.expanded = item.expanded_original
+    item.expanded_original = nil
+    item.expanded_original_stored = nil
+  end
+  if item.childs then
+    for _, child in ipairs(item.childs) do
+      restore_item(child)
+    end
+  end
+end
+
+---@param self widget.treelist
+---@param item widget.treelist.item
+---@param match string|widget.treelist.filtercb
+---@param match_type string
+---@return boolean
+local function filter_item(self, item, match, match_type)
+  if not item.visible_original_stored then
+    item.visible_original = item.visible
+    item.visible_original_stored = true
+  end
+  if not item.expanded_original_stored then
+    item.expanded_original = item.expanded
+    item.expanded_original_stored = true
+  end
+
+  local matched
+  if match_type == "function" then
+    matched = match(self, item)
+  else
+    matched = system.fuzzy_match(item.label or item.name, match, false)
+  end
+
+  local child_matched = false
+  if item.childs then
+    for _, child in ipairs(item.childs) do
+      child_matched = filter_item(self, child, match, match_type) or child_matched
+    end
+  end
+
+  item.visible = not not matched or child_matched
+  if child_matched then
+    item.expanded = true
+  end
+
+  return item.visible
+end
+
+---Set which tree items to show using the specified match string or callback,
+---if nil all items visibility is restored.
+---@param match? string | widget.treelist.filtercb
+function TreeList:filter(match)
+  if not match or match == "" then
+    for _, item in ipairs(self.items) do
+      restore_item(item)
+    end
+  else
+    local match_type = type(match)
+    for _, item in ipairs(self.items) do
+      filter_item(self, item, match, match_type)
+    end
+  end
+
+  if self.selected_item and self.selected_item.visible == false then
+    self.selected_item = nil
+  end
+  if self.hovered_item and self.hovered_item.visible == false then
+    self.hovered_item = nil
+  end
+end
+
 ---Retrieve the amount of visible items and also yield them.
 ---@param item widget.treelist.item
 ---@param x number
@@ -78,6 +162,7 @@ end
 ---@param depth? number
 ---@return integer items_count
 function TreeList:get_items(item, x, y, w, h, depth)
+  if item.visible == false then return 0 end
   if not depth then depth = 0 else depth = depth + 1 end
   item.depth = depth
   coroutine.yield(item, x, y, w, h)
@@ -241,7 +326,7 @@ function TreeList:on_mouse_moved(px, py, ...)
     return false
   end
 
-  local position = self:get_position()
+  local position = self.position
   local item_changed, tooltip_changed
   for item, x,y,w,h in self:each_item() do
     if px > x and py > y and px <= (self.size.x + position.x) and py <= y + h then
@@ -269,9 +354,17 @@ end
 ---@param clicks integer
 function TreeList:on_item_click(item, button, x, y, clicks) end
 
+local function clear_hover_state(self)
+  self.tooltip.x, self.tooltip.y = nil, nil
+  self.tooltip.alpha = 0
+  self.tooltip.begin = 0
+  self.hovered_item = nil
+end
+
 function TreeList:on_mouse_pressed(button, x, y, clicks)
   if TreeList.super.on_mouse_pressed(self, button, x, y, clicks) then
     if self:scrollbar_hovering() then return true end
+    self:on_mouse_moved(x, y, 0, 0)
     self:set_selection(self.hovered_item)
     if self.hovered_item then
       local emit_click = false
@@ -300,7 +393,12 @@ end
 
 function TreeList:on_mouse_left()
   TreeList.super.on_mouse_left(self)
-  self.hovered_item = nil
+  clear_hover_state(self)
+end
+
+function TreeList:on_mouse_leave(x, y, dx, dy)
+  TreeList.super.on_mouse_leave(self, x, y, dx, dy)
+  clear_hover_state(self)
 end
 
 function TreeList:update()
@@ -501,7 +599,7 @@ end
 function TreeList:draw()
   if not TreeList.super.draw(self) then return false end
 
-  local position, ox = self:get_position(), self:get_content_offset()
+  local position, ox = self.position, self:get_content_offset()
   local _y, _h, sw = position.y, self.size.y, 0
   for item, x,y,w,h in self:each_item() do
     if y + h >= _y and y < _y + _h then
