@@ -16,6 +16,7 @@ local ListBox = require "widget.listbox"
 ---@field private list widget.listbox
 ---@field private selected integer
 ---@field private hover_text renderer.color
+---@field private popup_opens_above boolean
 local SelectBox = Widget:extend()
 
 ---Constructor
@@ -30,6 +31,7 @@ function SelectBox:new(parent, label)
   self.list.border.width = 0
   self.list:enable_expand(true)
   self.selected = 0
+  self.popup_opens_above = false
 
   local list_on_row_click = self.list.on_row_click
   self.list.on_row_click = function(this, idx, data)
@@ -160,13 +162,16 @@ end
 ---and available screensize.
 function SelectBox:reposition_container()
   local y1 = self.position.y + self:get_height()
-  local y2 = self.position.y - self.list:get_height()
-    - (self.border.width * 2)
-    - (self.list_container.border.width * 2)
+  local target_height = self.list_container.prev_height
+  local current_height = self.list_container.visible
+    and self.list_container:get_height()
+    or (self.list_container.border.width * 2)
 
   local _, h = system.get_window_size(core.window)
 
-  if y1 + self.list:get_height() <= h then
+  self.popup_opens_above = y1 + target_height > h
+
+  if not self.popup_opens_above then
     self.list_container:set_position(
       self.position.x,
       y1
@@ -174,7 +179,7 @@ function SelectBox:reposition_container()
   else
     self.list_container:set_position(
       self.position.x,
-      y2
+      self.position.y - current_height
     )
   end
 
@@ -211,6 +216,8 @@ function SelectBox:on_click(button, x, y)
   SelectBox.super.on_click(self, button, x, y)
 
   if button == "left" then
+    local was_visible = self.list_container.visible
+    self:update_size_position()
     self:reposition_container()
 
     self.list_container.border.color = style.caret
@@ -220,6 +227,9 @@ function SelectBox:on_click(button, x, y)
         self.list:resize_to_parent()
       end
     })
+    if not was_visible and self.list_container.visible then
+      self.list_container:update()
+    end
   end
 end
 
@@ -240,11 +250,10 @@ end
 function SelectBox:update()
   if not SelectBox.super.update(self) then return false end
 
-  if
-    self.list_container.visible
-    and
-    self.list_container.position.y ~= self.position.y + self:get_height()
-  then
+  local expected_y = self.popup_opens_above
+    and (self.position.y - self.list_container:get_height())
+    or (self.position.y + self:get_height())
+  if self.list_container.visible and self.list_container.position.y ~= expected_y then
     self:reposition_container()
   end
 
