@@ -35,6 +35,7 @@ local Fonts = require "widget.fonts"
 ---@field underline widget.checkbox
 ---@field smoothing widget.checkbox
 ---@field strikethrough widget.checkbox
+---@field ligatures widget.checkbox
 ---@field save widget.button
 ---@field cancel widget.button
 local FontDialog = Dialog:extend()
@@ -128,6 +129,10 @@ function FontDialog:new(font, options)
   end
   self.strikethrough = CheckBox(self.panel, "Strike")
   function self.strikethrough:on_checked()
+    this:update_preview()
+  end
+  self.ligatures = CheckBox(self.panel, "Ligatures")
+  function self.ligatures:on_checked()
     this:update_preview()
   end
 
@@ -236,6 +241,9 @@ function FontDialog:set_options(options)
   if options.strikethrough ~= nil then
     self.strikethrough:set_checked(options.strikethrough)
   end
+  if options.ligatures ~= nil then
+    self.ligatures:set_checked(options.ligatures)
+  end
 end
 
 ---@return widget.fontdialog.fontoptions
@@ -248,7 +256,8 @@ function FontDialog:get_options()
     italic = self.italic:is_checked(),
     underline = self.underline:is_checked(),
     smoothing = self.smoothing:is_checked(),
-    strikethrough = self.strikethrough:is_checked()
+    strikethrough = self.strikethrough:is_checked(),
+    ligatures = self.ligatures:is_checked()
   }
 end
 
@@ -312,6 +321,10 @@ function FontDialog:update_size_position()
     self.smoothing:get_right() + style.padding.x,
     self.hinting:get_bottom() + style.padding.y
   )
+  self.ligatures:set_position(
+    self.strikethrough:get_right() + style.padding.x,
+    self.hinting:get_bottom() + style.padding.y
+  )
 
   self.save:set_position(
     style.padding.x/2,
@@ -329,7 +342,10 @@ function FontDialog:update_size_position()
 
   self.line:set_width(self.size.x - style.padding.x)
 
-  self.preview:set_size(self.hinting:get_right() - style.padding.x / 2)
+  self.preview:set_size(
+    math.max(self.hinting:get_right(), self.ligatures:get_right())
+      - style.padding.x / 2
+  )
 
   self.size.x = self.preview:get_right() + style.padding.x / 2
 
