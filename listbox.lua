@@ -415,6 +415,57 @@ function ListBox:get_selected()
   return nil
 end
 
+---Get the row at a screen position.
+---@param x number
+---@param y number
+---@return integer?
+function ListBox:get_row_at_position(x, y)
+  local header_height = 0
+  if #self.columns > 0 then
+    header_height = self:get_font():get_height() + style.padding.y
+  end
+
+  if #self.visible_rows <= 0 then
+    self:set_visible_rows()
+  end
+
+  -- Match the same screen-space row origin calculation used by draw().
+  local opx, opy = self.parent:get_content_offset()
+  if not self.parent.parent and not self.defer_draw then
+    opy = 0
+  end
+
+  local ox, oy = self:get_content_offset()
+  oy = oy - opy - self.parent.scroll.y
+  if #self.visible_rows > 0 then
+    oy = oy + (self.rows[self.visible_rows[1]].y - header_height)
+  end
+  oy = oy - (self.position.y - self.parent.position.y)
+
+  ox = ox - opx - self.parent.scroll.x
+  ox = ox - (self.position.x - self.parent.position.x)
+
+  local row_x = ox + self.position.x + self.border.width
+  local row_y = oy + self.position.y + self.border.width + header_height
+
+  for _, ridx in ipairs(self.visible_rows) do
+    local row = self.rows[ridx]
+    if row and row.w and row.h then
+      local width = self.largest_row > 0 and self.largest_row or row.w
+      if
+        x >= row_x
+        and x <= row_x + width
+        and y >= row_y
+        and y <= row_y + row.h
+      then
+        return ridx
+      end
+      row_y = row_y + row.h
+    end
+  end
+  return nil
+end
+
 ---Change the content assigned to a row.
 ---@param idx integer
 ---@param row widget.listbox.row
@@ -809,10 +860,21 @@ function ListBox:on_mouse_moved(x, y, dx, dy)
   self.hovered_row = 0
 end
 
+function ListBox:on_mouse_pressed(button, x, y, clicks)
+  local processed = ListBox.super.on_mouse_pressed(self, button, x, y, clicks)
+  if button == "right" then
+    self:set_selected(self:get_row_at_position(x, y))
+  end
+  return processed
+end
+
 function ListBox:on_click(button, x, y)
-  if button == "left" and self.hovered_row > 0 then
-    self.selected_row = self.hovered_row
-    self:on_row_click(self.hovered_row, self.row_data[self.hovered_row])
+  if button == "left" then
+    local idx = self:get_row_at_position(x, y)
+    if idx then
+      self:set_selected(idx)
+      self:on_row_click(idx, self.row_data[idx])
+    end
   end
 end
 
