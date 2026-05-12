@@ -11,6 +11,36 @@ local Highlighter = require "core.doc.highlighter"
 local View = require "core.view"
 local Widget = require "widget"
 
+local PASSWORD_CHAR = "•"
+
+---@param text string
+---@return string
+local function password_visible_text(text)
+  return (text:gsub("[\r\n]", ""))
+end
+
+---@param text string
+---@return string
+local function password_text(text)
+  return password_visible_text(text):ugsub(".", PASSWORD_CHAR)
+end
+
+---@param text string
+---@param col integer
+---@return integer
+local function password_chars_before_col(text, col)
+  local count = 0
+  local pos = 1
+  for char in text:ugmatch(".") do
+    if pos >= col then break end
+    if char ~= "\n" and char ~= "\r" then
+      count = count + 1
+    end
+    pos = pos + #char
+  end
+  return count
+end
+
 ---Customized Highlighter to disable the coroutine.
 ---@class widget.textbox.SingleLineHighlighter
 local SingleLineHighlighter = Highlighter:extend()
@@ -96,11 +126,56 @@ function TextView:draw_line_highlight()
 end
 
 function TextView:draw_line_text(line, x, y)
+  if self.subparent.password then
+    local text = self.doc.lines[line] or ""
+    local ty = y + self:get_line_text_y_offset()
+    renderer.draw_text(
+      self:get_font(),
+      password_text(text),
+      x,
+      ty,
+      style.syntax["normal"]
+    )
+    local placeholder = self.subparent.placeholder or ""
+    if placeholder ~= "" and #text < 2 then
+      renderer.draw_text(self:get_font(), placeholder, x, ty, style.dim)
+    end
+    return self:get_line_height()
+  end
+
   TextView.super.draw_line_text(self, line, x, y)
   local placeholder = self.subparent.placeholder or ""
   if placeholder ~= "" and #self.doc.lines[line] < 2 then
     renderer.draw_text(self:get_font(), placeholder, x, y, style.dim)
   end
+end
+
+function TextView:get_col_x_offset(line, col)
+  if self.subparent.password then
+    local text = self.doc.lines[line] or ""
+    return self:get_font():get_width(PASSWORD_CHAR)
+      * password_chars_before_col(text, col)
+  end
+  return TextView.super.get_col_x_offset(self, line, col)
+end
+
+function TextView:get_x_offset_col(line, x)
+  if self.subparent.password then
+    local text = password_visible_text(self.doc.lines[line] or "")
+    local char_width = self:get_font():get_width(PASSWORD_CHAR)
+    if char_width <= 0 then return 1 end
+    local offset = 0
+    local col = 1
+    for char in text:ugmatch(".") do
+      if x <= offset + (char_width / 2) then
+        return col
+      end
+      offset = offset + char_width
+      col = col + #char
+    end
+    return #text
+  end
+  return TextView.super.get_x_offset_col(self, line, x)
 end
 
 -- Overwrite this function just to disable the core.push_clip_rect
@@ -129,12 +204,13 @@ function TextView:draw()
 end
 
 ---@class widget.textbox : widget
----@overload fun(parent?:widget, text?:string, placeholder?:string):widget.textbox
+---@overload fun(parent?:widget, text?:string, placeholder?:string, options?:table):widget.textbox
 ---@field textview widget.textbox.TextView
 ---@field placeholder string
+---@field password boolean
 local TextBox = Widget:extend()
 
-function TextBox:new(parent, text, placeholder)
+function TextBox:new(parent, text, placeholder, options)
   TextBox.super.new(self, parent)
   self.type_name = "widget.textbox"
   self.textview = TextView(parent, self) -- allow finding containing parent
@@ -148,6 +224,7 @@ function TextBox:new(parent, text, placeholder)
   self.cursor = "ibeam"
   self.active = false
   self.drag_select = false
+  self.password = options and options.password or false
 
   if text ~= "" then
     self.textview:set_text(text)
@@ -194,6 +271,18 @@ end
 ---@param select? boolean
 function TextBox:set_text(text, select)
   self.textview:set_text(text, select)
+end
+
+---Enable or disable password display mode.
+---@param enabled boolean
+function TextBox:set_password_mode(enabled)
+  self.password = enabled
+end
+
+---Get whether password display mode is enabled.
+---@return boolean
+function TextBox:get_password_mode()
+  return self.password
 end
 
 --
