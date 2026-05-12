@@ -77,6 +77,38 @@ function Label:set_label(text)
   end
 end
 
+---Calculate the dimensions of the current label contents.
+---@return number width
+---@return number height
+function Label:get_content_size()
+  local width, height = 0, 0
+  if type(self.label) == "table" then
+    width, height = self:draw_styled_text(self.label, 0, 0, true)
+  else
+    local _, _, w, h = self:draw_text_multiline(
+      self:get_font(), self.label, 0, 0, self.foreground_color or style.text, true
+    )
+    width, height = w, h
+  end
+  if self.border.width > 0 then
+    width = width + style.padding.x
+    height = height + style.padding.y
+  end
+  return width, height
+end
+
+---@return number
+function Label:get_scrollable_size()
+  local _, height = self:get_content_size()
+  return math.max(self:get_size().y, height)
+end
+
+---@return number
+function Label:get_h_scrollable_size()
+  local width = self:get_content_size()
+  return math.max(self:get_size().x, width)
+end
+
 ---Disable or enable word wrap on the label when the width exceeds the
 ---parent width. Only works for string labels, no support for styled text
 ---is implemented at the moment.
@@ -152,6 +184,9 @@ function Label:update_size_position()
   if self.border.width > 0 then
     self.scrollable = true
   end
+  if self.scrollable then
+    self.clickable = true
+  end
 end
 
 function Label:update()
@@ -170,7 +205,8 @@ function Label:draw()
   local px = self.border.width > 0 and (style.padding.x / 2) or 0
   local py = self.border.width > 0 and (style.padding.y / 2) or 0
 
-  local posx, posy = self.position.x + px, self.position.y + py
+  local ox, oy = self:get_content_offset()
+  local posx, posy = ox + px, oy + py
 
   core.push_clip_rect(
     self.position.x,
@@ -182,7 +218,7 @@ function Label:draw()
   if type(self.label) == "table" then
     self:draw_styled_text(self.label, posx, posy)
   else
-    renderer.draw_text(
+    self:draw_text_multiline(
       self:get_font(),
       self.label,
       posx,
