@@ -23,6 +23,7 @@ local Widget = require "widget"
 
 ---@class widget.searchreplacelist.file
 ---@field path string
+---@field display_path? string
 ---@field lines widget.searchreplacelist.line[]
 ---@field expanded boolean
 
@@ -103,12 +104,14 @@ function SearchReplaceList:on_item_click(item, clicks) end
 ---@param path string
 ---@param lines widget.searchreplacelist.line[]
 ---@param expanded boolean?
-function SearchReplaceList:add_file(path, lines, expanded)
+---@param display_path? string
+function SearchReplaceList:add_file(path, lines, expanded, display_path)
   if type(expanded) == "nil" then expanded = true end
   table.insert(self.items, {
     checked = true,
     file = {
       path = path,
+      display_path = display_path,
       lines = lines,
       expanded = false
     }
@@ -524,7 +527,8 @@ function SearchReplaceList:draw()
   local last_file_path = nil
   for i, item, x,y,w,h in self:each_visible_item() do
     if item.file then
-      file_path = common.relative_path(self.base_dir, item.file.path)
+      file_path = item.file.display_path
+        or common.relative_path(self.base_dir, item.file.path)
     end
 
     -- add left padding
