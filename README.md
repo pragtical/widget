@@ -45,6 +45,7 @@ Components currently provided by this plugin are:
 * [Toggle](toggle.lua)
 * [ToggleButton](togglebutton.lua)
 * [TreeList](treelist.lua)
+* [WidgetList](widgetlist.lua)
 
 You can also write your own re-usable components and share them back for
 everyone to benefit by opening a Pull Request!
