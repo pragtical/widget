@@ -101,7 +101,10 @@ function WidgetListItem:update_size_position()
     end
     local height = math.max(child:get_height(), (min_size.y or 0) * SCALE)
     if idx > 1 then x = x + spacing end
-    child:set_size(math.max(0, width), height)
+    child:set_size(
+      math.max(0, width),
+      min_size.y and height or nil
+    )
     child:set_position(
       x + left,
       py + top + math.max(0, (max_height - height - top - bottom) / 2)
@@ -148,6 +151,7 @@ end
 ---@field private filter_value string|function|nil
 ---@field private layout_dirty boolean
 ---@field private previous_width number
+---@field private visible_row_count integer|nil
 local WidgetList = Widget:extend()
 
 ---@param parent? widget
@@ -160,6 +164,7 @@ function WidgetList:new(parent)
   self.filter_value = nil
   self.layout_dirty = true
   self.previous_width = -1
+  self.visible_row_count = nil
   self:set_size(300, (self:get_font():get_height() + style.padding.y) * 6)
 end
 
@@ -229,8 +234,14 @@ end
 
 ---@param count integer
 function WidgetList:set_visible_row_count(count)
-  count = math.max(1, math.floor(count))
+  self.visible_row_count = math.max(1, math.floor(count))
   self:relayout()
+end
+
+---@private
+function WidgetList:update_visible_row_size()
+  local count = self.visible_row_count
+  if not count then return end
   local height = 0
   local visible = 0
   for _, entry in ipairs(self.items) do
@@ -272,6 +283,7 @@ function WidgetList:relayout()
   self.content_height = y
   self.layout_dirty = false
   self.previous_width = self.size.x
+  self:update_visible_row_size()
 end
 
 ---@private
@@ -301,7 +313,12 @@ end
 
 function WidgetList:on_scale_change(...)
   WidgetList.super.on_scale_change(self, ...)
-  self.layout_dirty = true
+  -- Rows outside the viewport do not receive regular updates. Scale all of
+  -- them before rebuilding the cached offsets and visible-row height.
+  for _, entry in ipairs(self.items) do
+    entry.row:update_if_scaled()
+  end
+  self:relayout()
 end
 
 function WidgetList:update()
