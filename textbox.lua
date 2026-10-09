@@ -71,6 +71,8 @@ end
 ---@field super core.docview
 local TextView = DocView:extend()
 
+TextView.disable_save = true
+
 function TextView:new(parent, subparent)
   TextView.super.new(self, SingleLineDoc())
   self.parent = parent
