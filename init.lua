@@ -108,6 +108,8 @@ local RootView
 ---manually intercepting ctrl+wheel.
 ---@field protected skip_scroll_ctrl boolean
 ---@field protected captured_widget widget Widget that captured mouse events
+---@field protected captured_button core.view.mousebutton?
+---@field protected mouse_press {button:core.view.mousebutton, child:widget?}?
 ---@field protected animations widget.animation[]
 local Widget = View:extend()
 
@@ -126,6 +128,49 @@ local floating_widgets = {}
 ---Flag that indicates if the tooltip is been shown
 ---@type boolean
 local widget_showing_tooltip = false
+
+-- There is one pointer gesture, shared by floating and docked widgets.
+local mouse_capture
+
+local function belongs_to(widget, parent)
+  while widget and parent do
+    if widget == parent then return true end
+    widget = widget.parent
+  end
+  return false
+end
+
+local function clear_press(widget)
+  widget.mouse_press = nil
+  widget.mouse_is_pressed = false
+  widget.dragged = false
+end
+
+local function has_active_input(widget)
+  return widget.child_active or widget.input_text and widget.active
+end
+
+local function cancel_mouse_gesture(widget)
+  if mouse_capture and belongs_to(mouse_capture.widget, widget) then
+    mouse_capture.widget:release_mouse()
+  end
+  local root = widget
+  while root.parent do root = root.parent end
+  local target = root
+  while target.mouse_press and target.mouse_press.child do
+    target = target.mouse_press.child
+  end
+  if target.mouse_press and belongs_to(target, widget) then
+    root:on_mouse_capture_lost()
+    local grab = core.root_view.grab
+    if grab and grab.view == root then core.root_view:ungrab_mouse(grab.button) end
+  end
+  if belongs_to(root.child_active, widget)
+    or root == widget and root.input_text and root.active
+  then
+    root:swap_active_child()
+  end
+end
 
 ---When no parent is given to the widget constructor it will automatically
 ---overwrite RootView methods to intercept system events.
@@ -214,6 +259,7 @@ end
 function Widget:remove_child(child)
   for position, element in ipairs(self.childs) do
     if child == element then
+      child:hide()
       child:destroy_childs()
       table.remove(self.childs, position)
       break
@@ -271,6 +317,7 @@ end
 
 ---Hide the widget.
 function Widget:hide()
+  cancel_mouse_gesture(self)
   self.visible = false
   -- we need to force size to zero on parent widget to properly hide it
   -- when used as a pragtical node, otherwise the reserved space of the node
@@ -773,6 +820,8 @@ function Widget:swap_active_child(child)
 
   if self.child_active then
     self.child_active:deactivate()
+  elseif self.input_text then
+    self:deactivate()
   end
 
   self.child_active = child
@@ -853,29 +902,72 @@ end
 ---All mouse events will be directly sent to the widget even if mouse moves
 ---outside the widget region.
 ---@param scrolling? boolean Capture for scrolling
-function Widget:capture_mouse(scrolling)
+---@param button? core.view.mousebutton Defaults to left
+function Widget:capture_mouse(scrolling, button)
+  button = button or "left"
+  if mouse_capture then
+    if mouse_capture.widget == self and mouse_capture.button == button then return end
+    mouse_capture.widget:release_mouse()
+  end
+  Widget.override_rootview()
+  local root = self
+  while root.parent do root = root.parent end
+  local root_view = core.root_view
+  local grab = root_view.grab
+  if grab and (grab.view ~= root or grab.button ~= button) then
+    if grab.view:extends(Widget) then
+      grab.view:on_mouse_capture_lost()
+    else
+      grab.view:on_mouse_released(grab.button, root_view.mouse.x, root_view.mouse.y)
+    end
+    if root_view.grab == grab then root_view:ungrab_mouse(grab.button) end
+  end
+  if not root_view.grab then root_view:grab_mouse(button, root) end
+  mouse_capture = { widget = self, button = button, grab = root_view.grab }
+  self.captured_button = button
+  self.is_scrolling = scrolling or false
   local parent = self.parent
   while parent do
     -- propagate to parents so if mouse is not on top still
     -- reach the childrens when the mouse is released
-    if scrolling then parent.is_scrolling = true end
+    parent.is_scrolling = scrolling or false
     parent.captured_widget = self
     parent = parent.parent
   end
-  if scrolling then self.is_scrolling = true end
 end
 
 ---Undo capture_mouse()
 function Widget:release_mouse()
+  local capture = mouse_capture
+  if not capture or capture.widget ~= self then return end
+  mouse_capture = nil
+  self.captured_button = nil
+  if core.root_view.grab == capture.grab then
+    core.root_view:ungrab_mouse(capture.grab.button)
+  end
   local parent = self.parent
   while parent do
     -- propagate to parents so if mouse is not on top still
     -- reach the childrens when the mouse is released
-    parent.is_scrolling = false
-    parent.captured_widget = nil
+    if parent.captured_widget == self then
+      parent.is_scrolling = false
+      parent.captured_widget = nil
+      clear_press(parent)
+    end
     parent = parent.parent
   end
   self.is_scrolling = false
+  self:on_mouse_capture_lost()
+end
+
+---End a pointer gesture without emitting a click. Override to clear drag state.
+---@protected
+function Widget:on_mouse_capture_lost()
+  local press = self.mouse_press
+  clear_press(self)
+  self.is_scrolling = false
+  Widget.super.on_mouse_released(self, "left", self.mouse.x, self.mouse.y)
+  if press and press.child then press.child:on_mouse_capture_lost() end
 end
 
 ---Send mouse pressed events to hovered child or starts dragging if enabled.
@@ -887,43 +979,37 @@ end
 function Widget:on_mouse_pressed(button, x, y, clicks)
   if not self.visible then return false end
 
-  -- Capture when scrollbar is pressed
   if Widget.super.on_mouse_pressed(self, button, x, y, clicks) then
-    self:capture_mouse(true)
+    self.mouse_press = { button = button }
+    self.mouse_is_pressed = true
+    self:capture_mouse(true, button)
     return true
   end
 
-  for _, child in pairs(self.childs) do
+  for _, child in ipairs(self.childs) do
     if child:mouse_on_top(x, y) and child.clickable then
+      self.mouse_press = { button = button, child = child }
+      self.mouse_is_pressed = true
       child:on_mouse_pressed(button, x, y, clicks)
       return true
     end
   end
 
-  if self:mouse_on_top(x, y) then
-    self.mouse_is_pressed = true
+  if not self:mouse_on_top(x, y) then return false end
+  self.mouse_press = { button = button }
+  self.mouse_is_pressed = true
+  if not self.input_text then self:swap_active_child() end
 
-    if self.parent then
-      -- propagate to parents so if mouse is not on top still
-      -- reach the childrens when the mouse is released
-      self.parent.mouse_is_pressed = true
-    end
-
-    if self.draggable and not self.child_active then
-      self.position.dx = x - self.position.x
-      self.position.dy = y - self.position.y
-      system.set_cursor("hand")
-    end
-  else
-    self:swap_active_child()
-    return false
+  if self.draggable and not self.child_active then
+    self.position.dx = x - self.position.x
+    self.position.dy = y - self.position.y
+    system.set_cursor("hand")
+    self:capture_mouse(false, button)
   end
-
   return true
 end
 
----Send mouse released events to hovered child, ends dragging if enabled and
----emits on click events if applicable.
+---Send release to the pressed target, even outside its bounds.
 ---@param button widget.clicktype
 ---@param x number
 ---@param y number
@@ -936,65 +1022,37 @@ function Widget:on_mouse_released(button, x, y)
     core.status_view:remove_tooltip()
   end
 
+  local capture = mouse_capture
   if self.captured_widget then
-    self.captured_widget:on_mouse_released(button, x, y)
-    if self.is_scrolling then
-      self.captured_widget:release_mouse()
-    end
+    local target = self.captured_widget
+    if target.captured_button ~= button then return false end
+    target:on_mouse_released(button, x, y)
+    if mouse_capture == capture then target:release_mouse() end
     return true
   end
 
+  local press = self.mouse_press
+  local owns_capture = capture and capture.widget == self
+  if owns_capture and capture.button ~= button then return false end
+  if press and press.button ~= button then return false end
+  if not press and not owns_capture then return false end
+
+  local dragged = self.dragged
+  clear_press(self)
   Widget.super.on_mouse_released(self, button, x, y)
-
-  self:swap_active_child()
-
-  if self.child_active then
-    self.child_active:on_mouse_released(button, x, y)
+  if press and press.child then
+    local child = press.child
+    local child_press = child.mouse_press
+    child:on_mouse_released(button, x, y)
+    if child_press and child.mouse_press == child_press then
+      child:on_mouse_capture_lost()
+    end
+  elseif press and not dragged and not self.is_scrolling and self:mouse_on_top(x, y) then
+    self:on_click(button, x, y)
   end
 
-  if not self.dragged then
-    for _, child in pairs(self.childs) do
-      local mouse_on_top = child:mouse_on_top(x, y)
-      if
-        mouse_on_top
-        or
-        child.mouse_is_pressed
-      then
-        child:on_mouse_released(button, x, y)
-        if child.input_text then
-          self:swap_active_child(child)
-        end
-        if mouse_on_top and child.mouse_is_pressed then
-          child:on_click(button, x, y)
-        end
-        return true
-      end
-    end
-  end
-
-  if
-    not self.dragged
-    and
-    not self.mouse_is_pressed
-  then
-    return false
-  end
-
-  if self.mouse_is_pressed then
-    if self:mouse_on_top(x, y) then
-      self:on_click(button, x, y)
-    end
-    self.mouse_is_pressed = false
-    if self.parent then
-      self.parent.mouse_is_pressed = false
-    end
-    if self.draggable then
-      system.set_cursor("arrow")
-    end
-  end
-
-  self.dragged = false
-
+  if owns_capture and mouse_capture == capture then self:release_mouse() end
+  if self.draggable then system.set_cursor("arrow") end
   return true
 end
 
@@ -1039,39 +1097,35 @@ function Widget:on_mouse_moved(x, y, dx, dy)
   self.mouse.x = x
   self.mouse.y = y
 
-  if self.child_active then
-    self.child_active:on_mouse_moved(x, y, dx, dy)
-  end
-
+  local hovered
   if not self.dragged then
-    local hovered = nil
-    for _, child in pairs(self.childs) do
-      if
-        not hovered
-        and
-        (child:mouse_on_top(x, y) or child.mouse_is_pressed)
-      then
+    hovered = self.mouse_press and self.mouse_press.child
+    for _, child in ipairs(self.childs) do
+      if not hovered and child:mouse_on_top(x, y) then
         hovered = child
-      elseif child.mouse_is_hovering then
+      elseif child ~= hovered and child.mouse_is_hovering then
         if widget_showing_tooltip then
           widget_showing_tooltip = false
           core.status_view:remove_tooltip()
         end
         child.mouse_is_hovering = false
         child:on_mouse_leave(x, y, dx, dy)
-        system.set_cursor("arrow")
       end
     end
+  end
 
-    if hovered then
-      hovered:on_mouse_moved(x, y, dx, dy)
-      if last_hovered_child and not last_hovered_child:mouse_on_top(x, y) then
-        last_hovered_child:on_mouse_leave(x, y, dx, dy)
-        last_hovered_child.mouse_is_hovering = false
-        last_hovered_child = nil
-      end
-      return true;
+  -- child_active can be a descendant of hovered, not just a direct child.
+  if self.child_active and not belongs_to(self.child_active, hovered) then
+    self.child_active:on_mouse_moved(x, y, dx, dy)
+  end
+  if hovered then
+    hovered:on_mouse_moved(x, y, dx, dy)
+    if last_hovered_child and not last_hovered_child:mouse_on_top(x, y) then
+      last_hovered_child:on_mouse_leave(x, y, dx, dy)
+      last_hovered_child.mouse_is_hovering = false
+      last_hovered_child = nil
     end
+    return true
   end
 
   if
@@ -1156,7 +1210,7 @@ function Widget:on_mouse_leave(x, y, dx, dy)
 end
 
 function Widget:on_mouse_left()
-  if not self.captured_widget then
+  if not self.captured_widget and not self.captured_button then
     Widget.super.on_mouse_left(self)
     self:on_mouse_moved(-1, -1, -1, -1)
   end
@@ -1477,6 +1531,7 @@ end
 ---Recursively destroy all childs from the widget.
 function Widget:destroy_childs()
   for _=1, #self.childs do
+    self.childs[1]:hide()
     self.childs[1]:destroy_childs()
     table.remove(self.childs, 1)
   end
@@ -1485,6 +1540,7 @@ end
 ---If floating, remove the widget from the floating widgets list
 ---to allow proper garbage collection.
 function Widget:destroy()
+  self:hide()
   if not self.parent or self.defer_draw then
     for idx, widget in ipairs(floating_widgets) do
       if widget == self then
@@ -1533,15 +1589,17 @@ function Widget.override_rootview()
   local root_view_draw = RootView.draw
   local root_view_on_file_dropped = RootView.on_file_dropped
   local root_view_on_text_input = RootView.on_text_input
+  local root_view_on_focus_lost = RootView.on_focus_lost
 
   function RootView:on_mouse_pressed(button, x, y, clicks)
+    if self.grab then self:on_mouse_released(self.grab.button, x, y) end
     local pressed = false
     for i=#floating_widgets, 1, -1 do
       local widget = floating_widgets[i]
       if widget.visible then
         widget.mouse_pressed_outside = not widget:mouse_on_top(x, y)
         if
-          (not widget.defer_draw and not widget.child_active)
+          (not widget.defer_draw and not has_active_input(widget))
           or
           widget.mouse_pressed_outside
           or
@@ -1550,6 +1608,7 @@ function Widget.override_rootview()
           widget:swap_active_child()
         else
           pressed = true
+          if not self.grab then self:grab_mouse(button, widget) end
         end
       end
     end
@@ -1561,12 +1620,28 @@ function Widget.override_rootview()
   end
 
   function RootView:on_mouse_released(button, x, y)
+    if self.grab then
+      if self.grab.button ~= button then
+        return root_view_on_mouse_released(self, button, x, y)
+      end
+      -- SelectBox popups also need releases from clicks outside their view.
+      local grabbed_view = self.grab.view
+      for i=#floating_widgets, 1, -1 do
+        local widget = floating_widgets[i]
+        if widget.visible and widget ~= grabbed_view
+          and widget.force_events["mouse_released"]
+        then
+          widget:on_mouse_released(button, x, y)
+        end
+      end
+      return root_view_on_mouse_released(self, button, x, y)
+    end
     local released = false
     for i=#floating_widgets, 1, -1 do
       local widget = floating_widgets[i]
       if widget.visible then
         if
-          (not widget.defer_draw and not widget.child_active)
+          (not widget.defer_draw and not has_active_input(widget))
           or
           (
             not widget.force_events["mouse_released"]
@@ -1588,12 +1663,14 @@ function Widget.override_rootview()
   end
 
   function RootView:on_mouse_moved(x, y, dx, dy)
+    self.mouse.x, self.mouse.y = x, y
+    if self.grab then return root_view_on_mouse_moved(self, x, y, dx, dy) end
     if core.active_view ~= core.command_view then
       for i=#floating_widgets, 1, -1 do
         local widget = floating_widgets[i]
         if widget.visible then
           if
-            (not widget.defer_draw and not widget.child_active)
+            (not widget.defer_draw and not has_active_input(widget))
             or
             widget.mouse_pressed_outside
             or
@@ -1602,7 +1679,7 @@ function Widget.override_rootview()
               if
                 not widget.is_scrolling and not widget.captured_widget
                 and
-                not widget.child_active and widget.outside_view
+                not has_active_input(widget) and widget.outside_view
               then
                 core.set_active_view(widget.outside_view)
                 widget.outside_view = nil
@@ -1610,7 +1687,7 @@ function Widget.override_rootview()
                 core.request_cursor("arrow")
               end
           else
-            if not widget.child_active and widget.defer_draw then
+            if not has_active_input(widget) and widget.defer_draw then
               if not widget.outside_view then
                 widget.outside_view = core.active_view
               end
@@ -1621,11 +1698,25 @@ function Widget.override_rootview()
         end
       end
       if last_hovered_child and not last_hovered_child:mouse_on_top(x, y) then
-        last_hovered_child:on_mouse_moved(x, y, dx, dy)
+        last_hovered_child:on_mouse_leave(x, y, dx, dy)
+        last_hovered_child.mouse_is_hovering = false
         last_hovered_child = nil
       end
     end
     return root_view_on_mouse_moved(self, x, y, dx, dy)
+  end
+
+  function RootView:on_focus_lost(...)
+    if mouse_capture then mouse_capture.widget:release_mouse() end
+    if self.grab and self.grab.view:extends(Widget) then
+      local grab = self.grab
+      grab.view:on_mouse_capture_lost()
+      if self.grab == grab then self:ungrab_mouse(grab.button) end
+    end
+    for _, widget in ipairs(floating_widgets) do
+      widget:on_mouse_capture_lost()
+    end
+    return root_view_on_focus_lost(self, ...)
   end
 
   function RootView:on_mouse_wheel(y, x)
@@ -1658,7 +1749,9 @@ function Widget.override_rootview()
     for i=#floating_widgets, 1, -1 do
       local widget = floating_widgets[i]
       if
-        widget.visible and widget.defer_draw and widget:on_text_input(text)
+        widget.visible and widget.defer_draw
+        and (not widget.input_text or core.active_view == widget.textview)
+        and widget:on_text_input(text)
       then
         return true
       end

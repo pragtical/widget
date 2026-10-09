@@ -3,8 +3,10 @@
 --
 
 local core = require "core"
+local command = require "core.command"
+local common = require "core.common"
+local keymap = require "core.keymap"
 local style = require "core.style"
-local translate = require "core.doc.translate"
 local Doc = require "core.doc"
 local DocView = require "core.docview"
 local Highlighter = require "core.doc.highlighter"
@@ -96,6 +98,15 @@ function TextView:get_scrollable_size()
   return 0
 end
 
+function TextView:update()
+  TextView.super.update(self)
+  local width = self:get_col_x_offset(1, #self.doc.lines[1])
+  local margin = 3 * self:get_font():get_width(" ")
+  local max_x = math.max(0, width + margin - self.size.x)
+  self.scroll.x = common.clamp(self.scroll.x, 0, max_x)
+  self.scroll.to.x = common.clamp(self.scroll.to.x, 0, max_x)
+end
+
 function TextView:get_text()
   return self.doc:get_text(1, 1, 1, math.huge)
 end
@@ -175,7 +186,7 @@ function TextView:get_x_offset_col(line, x)
       offset = offset + char_width
       col = col + #char
     end
-    return #text
+    return col
   end
   return TextView.super.get_x_offset_col(self, line, x)
 end
@@ -218,14 +229,13 @@ function TextBox:new(parent, text, placeholder, options)
   self.textview = TextView(parent, self) -- allow finding containing parent
   self.textview.name = self:get_name()
   self.size.x = 200 + (style.padding.x * 2)
-  self.textview.size.x = self.size.x
+  self.textview.size.x = math.max(0, self.size.x - style.padding.x)
   self.size.y = self:get_font():get_height() + (style.padding.y * 2)
   self.placeholder = placeholder or ""
   -- this widget is for text input
   self.input_text = true
   self.cursor = "ibeam"
   self.active = false
-  self.drag_select = false
   self.password = options and options.password or false
 
   if text ~= "" then
@@ -259,7 +269,7 @@ function TextBox:set_size(width)
     width,
     self:get_font():get_height() + (style.padding.y * 2)
   )
-  self.textview.size.x = self.size.x
+  self.textview.size.x = math.max(0, self.size.x - style.padding.x)
 end
 
 --- Get the text displayed on the textbox.
@@ -292,49 +302,52 @@ end
 --
 
 function TextBox:on_mouse_pressed(button, x, y, clicks)
-  if TextBox.super.on_mouse_pressed(self, button, x, y, clicks) then
-    self.textview:on_mouse_pressed(button, x, y, clicks)
-    local line, col = self.textview:resolve_screen_position(x, y)
-    self.drag_select = { line = line, col = col }
-    self.textview.doc:set_selection(line, col, line, col)
-    if clicks == 2 then
-      local line1, col1 = translate.start_of_word(self.textview.doc, line, col)
-      local line2, col2 = translate.end_of_word(self.textview.doc, line1, col1)
-      self.textview.doc:set_selection(line2, col2, line1, col1)
-    elseif clicks == 3 then
-      self.textview.doc:set_selection(1, 1, 1, math.huge)
-    end
-    if core.active_view ~= self.textview then
-      self.textview:on_mouse_released(button, x, y)
-    end
-    return true
+  if not TextBox.super.on_mouse_pressed(self, button, x, y, clicks) then return false end
+  if button ~= "left" then return true end
+
+  if self.parent then
+    self.parent:swap_active_child(self)
+  else
+    self.prev_view = self.prev_view or self.outside_view or core.active_view
+    self.outside_view = nil
   end
-  return false
+  core.set_active_view(self.textview)
+  self:activate()
+  self.mouse.x, self.mouse.y = x, y
+  self:capture_mouse(false, button)
+  self.textview:on_mouse_pressed(button, x, y, clicks)
+
+  -- Padding belongs to the input too; resolve it at the nearest text edge.
+  local view = self.textview
+  x = common.clamp(x, view.position.x, view.position.x + math.max(1, view.size.x) - 1)
+  y = view.position.y + math.max(1, view.size.y) / 2
+  local cmd = keymap.modkeys.shift and "doc:select-to-cursor"
+    or clicks >= 3 and "doc:set-cursor-line"
+    or clicks == 2 and "doc:set-cursor-word"
+    or "doc:set-cursor"
+  command.perform(cmd, x, y)
+  return true
 end
 
 function TextBox:on_mouse_released(button, x, y)
-  if TextBox.super.on_mouse_released(self, button, x, y) then
-    self.drag_select = false
-    self.textview:on_mouse_released(button, x, y)
-    return true
-  end
-  return false
+  if self.captured_button and self.captured_button ~= button then return false end
+  local handled = TextBox.super.on_mouse_released(self, button, x, y)
+  if handled then self.textview:on_mouse_released(button, x, y) end
+  return handled
+end
+
+function TextBox:on_mouse_capture_lost()
+  TextBox.super.on_mouse_capture_lost(self)
+  self.textview:on_mouse_released("left", self.mouse.x, self.mouse.y)
 end
 
 function TextBox:on_mouse_moved(x, y, dx, dy)
-  if self.drag_select then
-    local line, col = self.textview:resolve_screen_position(x, y)
-    self.textview.doc:set_selection(
-      self.drag_select.line, self.drag_select.col, line, col
-    )
-  end
-  if TextBox.super.on_mouse_moved(self, x, y, dx, dy) then
-    if self.active or core.active_view == self.textview then
-      self.textview:on_mouse_moved(x, y, dx, dy)
-    end
+  local handled = TextBox.super.on_mouse_moved(self, x, y, dx, dy)
+  if self.textview.mouse_selecting or handled and (self.active or core.active_view == self.textview) then
+    self.textview:on_mouse_moved(x, y, dx, dy)
     return true
   end
-  return false
+  return handled
 end
 
 function TextBox:activate()
@@ -345,7 +358,8 @@ end
 
 function TextBox:deactivate()
   self.hover_border = nil
-  self.drag_select = false
+  self:release_mouse()
+  self.textview:on_mouse_released("left", self.mouse.x, self.mouse.y)
   self.active = false
   core.request_cursor("arrow")
 end
@@ -353,6 +367,7 @@ end
 function TextBox:on_text_input(text)
   TextBox.super.on_text_input(self, text)
   self.textview:on_text_input(text)
+  return true
 end
 
 ---Event fired on any text change event.
@@ -370,7 +385,7 @@ function TextBox:update()
   self.border.color = self.hover_border or style.text
 
   if
-    self.drag_select
+    self.textview.mouse_selecting
     or
     (self.active and self:mouse_on_top(self.mouse.x, self.mouse.y))
   then
@@ -379,9 +394,17 @@ function TextBox:update()
 
   self.textview.position.x = self.position.x + (style.padding.x / 2)
   self.textview.position.y = self.position.y - (style.padding.y/2.5)
-  self.textview.size.x = self.size.x
+  self.textview.size.x = math.max(0, self.size.x - style.padding.x)
   self.textview.size.y = self.size.y - (style.padding.y * 2)
 
+  -- Keep extending at an edge while the pointer is stationary and X scrolls.
+  if self.textview.mouse_selecting and self.captured_button == "left"
+    and core.active_view == self.textview
+    and (self.mouse.x < self.textview.position.x
+      or self.mouse.x > self.textview.position.x + self.textview.size.x)
+  then
+    self.textview:on_mouse_moved(self.mouse.x, self.mouse.y, 0, 0)
+  end
   self.textview:update()
 
   self:set_size(nil, self:get_font():get_height() + (style.padding.y * 2))

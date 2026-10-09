@@ -687,31 +687,23 @@ function ColorPicker:on_mouse_pressed(button, x, y, clicks)
     or
     self.brightness_mouse_down or self.alpha_mouse_down
   then
-    self:capture_mouse()
+    self:capture_mouse(false, button)
     update_control_values(self)
   end
   return true
 end
 
 function ColorPicker:on_mouse_released(button, x, y)
-  if
-    self.hue_mouse_down or self.saturation_mouse_down
-    or
-    self.brightness_mouse_down or self.alpha_mouse_down
-  then
-    self:release_mouse()
-  end
+  if self.captured_button and self.captured_button ~= button then return false end
+  return ColorPicker.super.on_mouse_released(self, button, x, y)
+end
 
+function ColorPicker:on_mouse_capture_lost()
+  ColorPicker.super.on_mouse_capture_lost(self)
   self.hue_mouse_down = false
   self.saturation_mouse_down = false
   self.brightness_mouse_down = false
   self.alpha_mouse_down = false
-
-  if not ColorPicker.super.on_mouse_released(self, button, x, y) then
-    return false
-  end
-
-  return true
 end
 
 function ColorPicker:on_mouse_moved(x, y, dx, dy)
