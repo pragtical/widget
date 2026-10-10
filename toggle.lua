@@ -18,7 +18,7 @@ local BORDER = 3
 ---@field public enabled boolean
 ---@field private caption_label widget.textbox
 ---@field private padding integer
----@field private switch_x number
+---@field private switch_x number Thumb offset relative to the track.
 ---@field private toggle_bg renderer.color
 local Toggle = Widget:extend()
 
@@ -39,6 +39,7 @@ function Toggle:new(parent, label, enable)
 
   self.padding = 2
   self.border.width = 0
+  self.render_background = false
 
   self:set_size(
     self.caption_label:get_width() + (style.padding.x / 2) + (BOX * SCALE),
@@ -90,10 +91,9 @@ function Toggle:update()
   self.toggle_x = self.caption_label:get_right() + px
 
   local switch_x = self.enabled and
-    self.position.x + self.toggle_x
-      + ((BOX - TOGGLE - BORDER) * SCALE)
+    ((BOX - TOGGLE - BORDER) * SCALE)
     or
-    self.position.x + self.toggle_x + (BORDER * SCALE)
+    (BORDER * SCALE)
 
   if not self.animate_switch then
     self.switch_x = switch_x
@@ -126,7 +126,7 @@ function Toggle:draw()
   )
 
   renderer.draw_rect(
-    self.switch_x,
+    self.position.x + self.toggle_x + self.switch_x,
     self.position.y + (BORDER * SCALE),
     TOGGLE * SCALE,
     self.size.y - ((BORDER * 2) * SCALE),
