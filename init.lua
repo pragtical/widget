@@ -101,6 +101,7 @@ local RootView
 ---@field protected prev_size widget.position
 ---@field protected mouse_is_pressed boolean
 ---@field protected mouse_is_hovering boolean
+---@field protected hovered_child widget? Child that last received hover motion
 ---@field protected mouse_pressed_outside boolean
 ---@field protected is_scrolling boolean
 ---By default is set to true to allow ctrl+wheel or cmd+wheel on mac to scale
@@ -194,6 +195,7 @@ function Widget:new(parent, floating)
   end
   self.childs = {}
   self.child_active = nil
+  self.hovered_child = nil
   self.zindex = nil
   self.next_zindex = 1
   self.border = {
@@ -1103,7 +1105,7 @@ function Widget:on_mouse_moved(x, y, dx, dy)
     for _, child in ipairs(self.childs) do
       if not hovered and child:mouse_on_top(x, y) then
         hovered = child
-      elseif child ~= hovered and child.mouse_is_hovering then
+      elseif child ~= hovered and (child.mouse_is_hovering or child == self.hovered_child) then
         if widget_showing_tooltip then
           widget_showing_tooltip = false
           core.status_view:remove_tooltip()
@@ -1112,6 +1114,7 @@ function Widget:on_mouse_moved(x, y, dx, dy)
         child:on_mouse_leave(x, y, dx, dy)
       end
     end
+    self.hovered_child = hovered
   end
 
   -- child_active can be a descendant of hovered, not just a direct child.
@@ -1121,9 +1124,10 @@ function Widget:on_mouse_moved(x, y, dx, dy)
   if hovered then
     hovered:on_mouse_moved(x, y, dx, dy)
     if last_hovered_child and not last_hovered_child:mouse_on_top(x, y) then
-      last_hovered_child:on_mouse_leave(x, y, dx, dy)
-      last_hovered_child.mouse_is_hovering = false
+      local child = last_hovered_child
       last_hovered_child = nil
+      child.mouse_is_hovering = false
+      child:on_mouse_leave(x, y, dx, dy)
     end
     return true
   end
@@ -1202,11 +1206,19 @@ end
 
 ---Emitted once when the mouse leaves the widget.
 function Widget:on_mouse_leave(x, y, dx, dy)
+  Widget.super.on_mouse_left(self)
+  self.mouse_is_hovering = false
   for _, child in pairs(self.childs) do
-    if child.mouse_is_hovering then
+    if child.mouse_is_hovering or child == self.hovered_child then
+      child.mouse_is_hovering = false
       child:on_mouse_leave(x, y, dx, dy)
     end
   end
+  self.hovered_child = nil
+  if self.parent and self.parent.hovered_child == self then
+    self.parent.hovered_child = nil
+  end
+  if last_hovered_child == self then last_hovered_child = nil end
 end
 
 function Widget:on_mouse_left()
@@ -1698,9 +1710,10 @@ function Widget.override_rootview()
         end
       end
       if last_hovered_child and not last_hovered_child:mouse_on_top(x, y) then
-        last_hovered_child:on_mouse_leave(x, y, dx, dy)
-        last_hovered_child.mouse_is_hovering = false
+        local child = last_hovered_child
         last_hovered_child = nil
+        child.mouse_is_hovering = false
+        child:on_mouse_leave(x, y, dx, dy)
       end
     end
     return root_view_on_mouse_moved(self, x, y, dx, dy)
