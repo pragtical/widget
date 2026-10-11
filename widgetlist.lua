@@ -159,10 +159,11 @@ end
 function WidgetListItem:draw()
   if not self:is_visible() then return false end
   if self.hovered then
+    -- Highlight the viewport, including the space reserved for the scrollbar.
     renderer.draw_rect(
-      self.position.x,
+      self.parent.position.x,
       self.position.y,
-      self.size.x,
+      self.parent.size.x,
       self.size.y,
       style.line_highlight
     )
