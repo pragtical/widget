@@ -308,8 +308,7 @@ function TextBox:on_mouse_pressed(button, x, y, clicks)
   if self.parent then
     self.parent:swap_active_child(self)
   else
-    self.prev_view = self.prev_view or self.outside_view or core.active_view
-    self.outside_view = nil
+    self.prev_view = self.prev_view or core.active_view
   end
   core.set_active_view(self.textview)
   self:activate()

@@ -1,3 +1,4 @@
+local View = require "core.view"
 --
 -- TreeList Widget heavily based on TreeView plugin.
 -- @copyright Jefferson Gonzalez
@@ -457,6 +458,8 @@ function TreeList:draw_tooltip()
     x = x - w -- span left instead
   end
 
+  x, y = core.root_view:clamp_floating_bounds(x, y, w, h)
+
   local tooltip_border = 1
   local bx, by = x - tooltip_border, y - tooltip_border
   local bw, bh = w + 2 * tooltip_border, h + 2 * tooltip_border
@@ -621,7 +624,29 @@ function TreeList:draw()
     and
     self.tooltip.x and self.tooltip.alpha > 0
   then
-    core.root_view:defer_draw(self.draw_tooltip, self)
+    if not self.tooltip_view then
+      local tooltip = View()
+      self.tooltip_view = tooltip
+      tooltip:set_floating(true, { owner = self, interactive = false, focus = "none" })
+      ---Get the editor viewport bounds for a companion that draws outside its owner.
+      ---@return number x Viewport screen x coordinate
+      ---@return number y Viewport screen y coordinate
+      ---@return number w Viewport width
+      ---@return number h Viewport height
+      tooltip.get_floating_bounds = function()
+        local root = core.root_view
+        return root.position.x, root.position.y, root.size.x, root.size.y
+      end
+      ---Ignore placement writes because this companion computes its bounds from its owner.
+      tooltip.set_floating_bounds = function() end
+      ---Draw the owning TreeList's tooltip in the editor floating layer.
+      tooltip.draw = function() self:draw_tooltip() end
+      ---Remove the companion when the hovered row no longer has a visible tooltip.
+      tooltip.update = function()
+        if not (self.hovered_item and self.hovered_item.tooltip and self.tooltip.x and self.tooltip.alpha > 0) then tooltip:hide_floating() end
+      end
+    end
+    if not self.tooltip_view.floating_visible then self.tooltip_view:show_floating() end
   end
 
   return true

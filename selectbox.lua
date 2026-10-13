@@ -44,21 +44,11 @@ function SelectBox:new(parent, label)
     self.list_container:hide_animated(true)
   end
 
-  -- Hide list if mouse clicked outside
-  self.list_container:force_event("mouse_released")
-  self.list_container.on_mouse_released = function(this, button, x, y)
-    if
-      this:is_visible()
-      and
-      not this:mouse_on_top(x, y) and not self:mouse_on_top(x, y)
-    then
-      this:hide()
-      return false
-    end
-    if this:is_visible() and this:mouse_on_top(x, y) then
-      return Widget.on_mouse_released(this, button, x, y)
-    end
-  end
+  -- RootView dismisses the list when the mouse is released outside it.
+  self.list_container:set_floating(true, {
+    owner = self, dismiss_on_escape = true, dismiss_on_outside_click = true,
+    outside_click_event = "release", consume_outside_click = false
+  })
 
   self:set_size(200)
   self.default_width = self:get_size().x
