@@ -34,8 +34,36 @@ function CheckBox:set_label(text)
   local font = self:get_font()
 
   local size = self:get_size()
-  size.x = font:get_width(self.label) + bw + (style.padding.x / 2)
-  size.y = font:get_height()
+  self.label_lines = { self.label }
+  if self.wrap_width then
+    local available = math.max(1, self.wrap_width - bw - style.padding.x / 2)
+    self.label_lines = {}
+    for paragraph in (self.label .. "\n"):gmatch "([^\n]*)\n" do
+      local line = ""
+      for word in paragraph:gmatch "%S+" do
+        local candidate = line == "" and word or line .. " " .. word
+        if line ~= "" and font:get_width(candidate) > available then
+          self.label_lines[#self.label_lines + 1], line = line, word
+        else
+          line = candidate
+        end
+      end
+      self.label_lines[#self.label_lines + 1] = line
+    end
+  end
+  local width = 0
+  for _, line in ipairs(self.label_lines) do
+    width = math.max(width, font:get_width(line))
+  end
+  size.x = width + bw + (style.padding.x / 2)
+  size.y = font:get_height() * #self.label_lines
+end
+
+---Constrain label width with word wrapping; nil restores single-line labels.
+---@param width? number
+function CheckBox:set_wrap_width(width)
+  self.wrap_width = width
+  self:set_label(self.label)
 end
 
 ---Change the status of the checkbox.
@@ -107,30 +135,38 @@ function CheckBox:update_size_position()
 end
 
 function CheckBox:draw()
-  if not self:is_visible() then return false end
+  if not self:is_visible() then
+    return false
+  end
 
   local bx, by, bw, bh = self:get_box_rect()
 
   self:draw_border(bx, by, bw, bh)
 
   renderer.draw_rect(
-    bx, by, bw, bh,
+    bx,
+    by,
+    bw,
+    bh,
     self.hover_back or self.background_color or style.background
   )
 
   if self.animating then
-    renderer.draw_rect(bx + 2, by + 2, bw-4, bh-4, self.animating_color)
+    renderer.draw_rect(bx + 2, by + 2, bw - 4, bh - 4, self.animating_color)
   elseif self.checked then
-    renderer.draw_rect(bx + 2, by + 2, bw-4, bh-4, style.caret)
+    renderer.draw_rect(bx + 2, by + 2, bw - 4, bh - 4, style.caret)
   end
 
-  renderer.draw_text(
-    self:get_font(),
-    self.label,
-    self.position.x + bw + (style.padding.x / 2),
-    self.position.y,
-    self.hover_text or self.foreground_color or style.text
-  )
+  local font = self:get_font()
+  for i, line in ipairs(self.label_lines or { self.label }) do
+    renderer.draw_text(
+      font,
+      line,
+      self.position.x + bw + (style.padding.x / 2),
+      self.position.y + (i - 1) * font:get_height(),
+      self.hover_text or self.foreground_color or style.text
+    )
+  end
 
   return true
 end

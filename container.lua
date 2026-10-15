@@ -164,6 +164,14 @@ local function position_vertical(self)
   end
 end
 
+---Reflow children when their fonts and dimensions change with the UI scale.
+---@param new_scale number Current UI scale
+---@param prev_scale number Previous UI scale
+function Container:on_scale_change(new_scale, prev_scale)
+  Container.super.on_scale_change(self, new_scale, prev_scale)
+  self.old_size.x, self.old_size.y = -1, -1
+end
+
 function Container:update()
   if Container.super.update(self) then
     if self.old_size.x ~= self.size.x or self.old_size.y ~= self.size.y then

@@ -219,6 +219,7 @@ end
 ---@class widget.textbox : widget
 ---@overload fun(parent?:widget, text?:string, placeholder?:string, options?:table):widget.textbox
 ---@field textview widget.textbox.TextView
+---@field active boolean Whether the embedded TextView has keyboard focus
 ---@field placeholder string
 ---@field password boolean
 local TextBox = Widget:extend()
@@ -352,7 +353,6 @@ end
 function TextBox:activate()
   self.hover_border = style.caret
   self.active = true
-  core.request_cursor("ibeam")
 end
 
 function TextBox:deactivate()
@@ -360,7 +360,6 @@ function TextBox:deactivate()
   self:release_mouse()
   self.textview:on_mouse_released("left", self.mouse.x, self.mouse.y)
   self.active = false
-  core.request_cursor("arrow")
 end
 
 function TextBox:on_text_input(text)
@@ -381,12 +380,21 @@ function TextBox:on_text_change(action, ...) end
 function TextBox:update()
   if not TextBox.super.update(self) then return false end
 
+  -- The container remembers its last input even while another view has focus.
+  local focused = core.active_view == self.textview
+  if focused and not self.active then
+    self:activate()
+  elseif self.active and not focused then
+    self:deactivate()
+  end
+
   self.border.color = self.hover_border or style.text
 
   if
-    self.textview.mouse_selecting
+    self.mouse_is_hovering
     or
-    (self.active and self:mouse_on_top(self.mouse.x, self.mouse.y))
+    (self.textview.mouse_selecting and self.captured_button == "left"
+      and core.active_view == self.textview)
   then
     core.request_cursor("ibeam")
   end

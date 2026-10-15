@@ -37,17 +37,14 @@ end
 ---@param height? integer
 function Label:set_size(width, height)
   Label.super.set_size(self, width, height)
-  self.custom_size.x = self.size.x
-  self.custom_size.y = self.size.y
+  if width then self.custom_size.x = self:get_size().x end
   if height then
+    self.custom_size.y = self:get_size().y
     self.default_height = false
   end
   if self.default_height then
-    local font_height = self:get_font():get_height()
-    if self.border.width > 0 then
-      font_height = font_height + style.padding.y
-    end
-    Label.super.set_size(self, nil, font_height)
+    local _, content_height = self:get_content_size()
+    Label.super.set_size(self, nil, content_height + self.border.width * 2)
   end
 end
 
@@ -56,24 +53,16 @@ end
 function Label:set_label(text)
   Label.super.set_label(self, text)
 
-  if self.word_wrap and not self.wrapping and self.original_label then
-    if type(text) == "string" then self.original_label = text end
+  if not self.wrapping then
+    self.original_label = type(text) == "string" and text or nil
+    self.last_wrap_size = nil
   end
 
-  local font = self:get_font()
-
-  if self.custom_size.x <= 0 then
-    if type(text) == "table" then
-      self.size.x, self.size.y = self:draw_styled_text(text, 0, 0, true)
-    else
-      self.size.x = font:get_width(self.label)
-      self.size.y = font:get_height()
-    end
-
-    if self.border.width > 0 then
-      self.size.x = self.size.x + style.padding.x
-      self.size.y = self.size.y + style.padding.y
-    end
+  local width, height = self:get_content_size()
+  local size = self:get_size()
+  if self.custom_size.x <= 0 then size.x = width end
+  if self.default_height ~= false then
+    size.y = height
   end
 end
 
@@ -99,12 +88,14 @@ end
 
 ---@return number
 function Label:get_scrollable_size()
+  if not self.scrollable then return self:get_size().y end
   local _, height = self:get_content_size()
   return math.max(self:get_size().y, height)
 end
 
 ---@return number
 function Label:get_h_scrollable_size()
+  if not self.scrollable then return self:get_size().x end
   local width = self:get_content_size()
   return math.max(self:get_size().x, width)
 end
@@ -119,67 +110,84 @@ function Label:toggle_word_wrap(value)
   else
     self.word_wrap = not self.word_wrap
   end
+  if not self.word_wrap and self.original_label then
+    self:set_label(self.original_label)
+  end
+  self.last_wrap_size = nil
+  core.redraw = true
 end
 
 ---@param self widget.label
 local function word_wrap(self)
-  if self.parent then
-    local psize = self.parent:get_size()
-    local lsize = self:get_size()
-    if
-      psize.x < lsize.x or (self.last_wrap_size ~= psize.x)
-      and
-      (
-        (not self.original_label and type(self.label) == "string")
-        or
-        type(self.original_label) == "string"
-      )
-    then
-      self.wrapping = true
-      if type(self.original_label) ~= "string" then
-        self.original_label = self.label
-      end
-      local words = {}
-      for word in self.original_label:ugmatch("%S+") do
-        table.insert(words, word)
-      end
-      local label = ""
-      ---@type widget.styledtext
-      local styledtext = {}
-      for i=1, #words do
-        local text = label .. (#label == 0 and "" or " ") .. words[i]
-        self:set_label(text)
-        local size = self:get_size()
-        if size.x < psize.x - self:get_position().x then
-          label = text
-          if i == #words then
-            table.insert(styledtext, label)
-          end
-        else
-          table.insert(styledtext, label)
-          table.insert(styledtext, Widget.NEWLINE)
-          if i ~= #words then
-            label = words[i]
-          else
-            table.insert(styledtext, words[i])
-          end
-        end
-      end
-      if #styledtext > 1 then
-        self:set_label(styledtext)
+  if type(self.original_label) ~= "string" then
+    return
+  end
+  local width = self.custom_size.x
+  if width <= 0 and self.parent then
+    -- get_position() can re-enter scale updates while layout is running.
+    width = self.parent:get_size().x - (self.position.rx or 0)
+  end
+  if width <= 0 then
+    return
+  end
+  if self.border.width > 0 then
+    width = width - style.padding.x
+  end
+  width = math.max(1, width)
+  local font = self:get_font()
+  if
+    self.last_wrap_size == width
+    and self.last_wrap_font == font
+    and self.last_wrap_font_size == font:get_size()
+  then
+    return
+  end
+  local lines = {}
+  for paragraph in (self.original_label .. "\n"):gmatch "([^\n]*)\n" do
+    local line = paragraph:match "^%s*" or ""
+    for word in paragraph:gmatch "%S+" do
+      local candidate = line .. (line:match "%S" and " " or "") .. word
+      if line:match "%S" and font:get_width(candidate) > width then
+        lines[#lines + 1], line = line, word
       else
-        self:set_label(self.original_label)
+        line = candidate
       end
-      self.last_wrap_size = psize.x
-      self.wrapping = false
     end
+    lines[#lines + 1] = line
+  end
+  local styled = {}
+  for i, line in ipairs(lines) do
+    if i > 1 then
+      styled[#styled + 1] = Widget.NEWLINE
+    end
+    styled[#styled + 1] = line
+  end
+  self.wrapping = true
+  self:set_label(styled)
+  self.wrapping = false
+  if self.default_height then
+    self.size.y = #lines * font:get_height()
+  end
+  self.last_wrap_size, self.last_wrap_font = width, font
+  self.last_wrap_font_size = font:get_size()
+end
+
+---Reflow a plain-text label immediately after changing its available width.
+function Label:wrap_text()
+  if self.word_wrap then
+    word_wrap(self)
   end
 end
 
 function Label:update_size_position()
   Label.super.update_size_position(self)
   if self.custom_size.x <= 0 then
-    self:set_label(self.label)
+    if self.word_wrap and self.original_label then
+      self.last_wrap_size = nil
+      self:wrap_text()
+    else
+      self:set_label(self.label)
+    end
   end
   if self.border.width > 0 then
     self.scrollable = true

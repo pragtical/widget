@@ -5,6 +5,7 @@
 --
 
 local core = require "core"
+local common = require "core.common"
 local command = require "core.command"
 local config = require "core.config"
 local style = require "core.style"
@@ -525,28 +526,13 @@ function Widget:draw_border(x, y, w, h)
   w = w + (self.border.width * 2)
   h = h + (self.border.width * 2)
 
-  -- Draw lines instead of full rectangle to be able to draw on top
-
-  --top
-  renderer.draw_rect(
-    x, y, w + x % 1 - self.border.width, self.border.width,
-    self.border.color or style.text
-  )
-  --bottom
-  renderer.draw_rect(
-    x, y+h - self.border.width, w + x % 1 - self.border.width, self.border.width,
-    self.border.color or style.text
-  )
-  --right
-  renderer.draw_rect(
-    x+w - self.border.width, y, self.border.width, h,
-    self.border.color or style.text
-  )
-  --left
-  renderer.draw_rect(
-    x, y, self.border.width, h,
-    self.border.color or style.text
-  )
+  -- Keep all strokes inside the outer bounds, without blending corners twice.
+  local border = self.border.width
+  local color = self.border.color or style.text
+  renderer.draw_rect(x, y, w, border, color)
+  renderer.draw_rect(x, y + h - border, w, border, color)
+  renderer.draw_rect(x, y + border, border, h - border * 2, color)
+  renderer.draw_rect(x + w - border, y + border, border, h - border * 2, color)
 end
 
 ---Called by pragtical node system to properly resize the widget.
@@ -684,6 +670,16 @@ function Widget:get_font(font)
     return style.font
   end
   return font
+end
+
+---Get the content origin while preserving fractional layout coordinates.
+---Snap only the scroll displacement so descendants move by whole pixels
+---together without shifting their borders relative to the parent's viewport.
+---@return number x Screen x coordinate after horizontal scrolling
+---@return number y Screen y coordinate after vertical scrolling
+function Widget:get_content_offset()
+  return self.position.x - common.round(self.scroll.x),
+    self.position.y - common.round(self.scroll.y)
 end
 
 ---Get the relative position in relation to parent
@@ -852,6 +848,7 @@ end
 ---widget or the size of the widget it self if greater.
 ---@return number
 function Widget:get_scrollable_size()
+  if not self.scrollable then return self:get_size().y end
   return math.max(self:get_size().y, self:get_real_height())
 end
 
@@ -859,6 +856,7 @@ end
 ---widget or the size of the widget it self if greater.
 ---@return number
 function Widget:get_h_scrollable_size()
+  if not self.scrollable then return self:get_size().x end
   return math.max(self:get_size().x, self:get_real_width())
 end
 

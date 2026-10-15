@@ -130,9 +130,9 @@ function ToggleButton:on_mouse_leave(...)
 end
 
 function ToggleButton:on_scale_change(new_scale, prev_scale)
-  ToggleButton.super.on_scale_change(self, new_scale, prev_scale)
   self.padding.x = self.padding.x * (new_scale / prev_scale)
   self.padding.y = self.padding.y * (new_scale / prev_scale)
+  ToggleButton.super.on_scale_change(self, new_scale, prev_scale)
 end
 
 function ToggleButton:update_size_position()

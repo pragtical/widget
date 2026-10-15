@@ -1,17 +1,22 @@
 local core = require "core"
 local common = require "core.common"
+local config = require "core.config"
 local style = require "core.style"
 local Widget = require "widget"
 local Button = require "widget.button"
 local Label = require "widget.label"
+local TextBox = require "widget.textbox"
 
 ---@class widget.filepicker : widget
 ---@overload fun(parent?:widget, path?:string):widget.filepicker
 ---@field public pick_mode integer
 ---@field public filters table<integer,string>
+---@field public picker_title? string
+---@field private editable boolean
 ---@field private path string
 ---@field private file widget.label
----@field private textbox widget.textbox
+---@field private textbox? widget.textbox
+---@field private setting_path? boolean
 ---@field private button widget.button
 local FilePicker = Widget:extend()
 
@@ -79,6 +84,7 @@ function FilePicker:new(parent, path)
   self.filters = {}
   self.border.width = 0
   self.pick_mode = FilePicker.mode.FILE
+  self.editable = false
 
   self.file = Label(self, "")
   self.file.clickable = true
@@ -128,20 +134,47 @@ end
 function FilePicker:set_size(width, height)
   FilePicker.super.set_size(self, width, height)
 
-  self.file:set_position(0, 0)
-  self.file:set_size(
-    self:get_width() - self.button:get_width(),
+  local input = self.editable and self.textbox or self.file
+  local gap = self.editable and style.padding.x / 2 or 0
+  input:set_position(0, 0)
+  input:set_size(
+    math.max(1, self:get_width() - self.button:get_width() - gap),
     self.button:get_height()
   )
 
-  self.button:set_position(self.file:get_right(), 0)
+  self.button:set_position(input:get_right() + gap, 0)
 
-  self.size.y = math.max(
-    self.file:get_height(),
+  self:get_size().y = math.max(
+    input:get_height(),
     self.button:get_height()
     -- something is off on calculation since adding border width should not
     -- be needed to display whole rendered control at all...
   ) + self.button.border.width
+end
+
+---Enable direct text editing; the default displays a clickable path label.
+---@param enabled boolean
+function FilePicker:set_editable(enabled)
+  self.editable = enabled == true
+  if self.editable then
+    if not self.textbox then
+      self.textbox = TextBox(self, self.path)
+      self.textbox.on_change = function(_, text)
+        if not self.setting_path then
+          self:set_path(text)
+          self:on_change(self:get_path())
+        end
+      end
+    end
+    self.file:hide()
+    self.textbox:show()
+  else
+    self.file:show()
+    if self.textbox then self.textbox:hide() end
+  end
+  self:set_mode(self.pick_mode)
+  self:set_size(self:get_width(), self:get_height())
+  self:schedule_update()
 end
 
 ---Add a lua pattern to the filters list
@@ -165,6 +198,12 @@ function FilePicker:set_mode(mode)
   else
     self.pick_mode = mode
   end
+  local file = self.pick_mode == FilePicker.mode.FILE
+    or self.pick_mode == FilePicker.mode.FILE_EXISTS
+  self.button:set_tooltip(file and "Choose file" or "Choose directory")
+  if self.textbox then
+    self.textbox.placeholder = file and "File path..." or "Directory path..."
+  end
 end
 
 ---Set the full path including directory and filename.
@@ -183,6 +222,11 @@ function FilePicker:set_path(path)
   else
     self.path = ""
     self.file.label = ""
+  end
+  if self.textbox and self.textbox:get_text() ~= self.path then
+    self.setting_path = true
+    self.textbox:set_text(self.path)
+    self.setting_path = false
   end
 end
 
@@ -288,8 +332,8 @@ local function filter(self, list)
 end
 
 ---@param self widget.filepicker
-local function show_file_picker(self)
-  core.command_view:enter("Choose File", {
+local function file_picker_options(self)
+  return {
     text = self:get_relative_path(),
     submit = function(text)
       ---@type string
@@ -349,12 +393,12 @@ local function show_file_picker(self)
       end
       return true
     end,
-  })
+  }
 end
 
 ---@param self widget.filepicker
-local function show_dir_picker(self)
-  core.command_view:enter("Choose Directory", {
+local function directory_picker_options(self)
+  return {
     text = self:get_relative_path(),
     submit = function(text)
       local path = common.home_expand(text)
@@ -387,27 +431,58 @@ local function show_dir_picker(self)
       end
       return true
     end
-  })
+  }
 end
 
----Show the command view file or directory browser depending on the
----current file picker mode.
+---Browse with the command view or the editor's configured system picker.
 function FilePicker:show_picker()
-  if
-    self.pick_mode == FilePicker.mode.FILE
-    or
-    self.pick_mode == FilePicker.mode.FILE_EXISTS
-  then
-    show_file_picker(self)
-  else
-    show_dir_picker(self)
+  local file = self.pick_mode == FilePicker.mode.FILE
+    or self.pick_mode == FilePicker.mode.FILE_EXISTS
+  local options = file and file_picker_options(self)
+    or directory_picker_options(self)
+  local title = self.picker_title
+    or (file and "Choose File" or "Choose Directory")
+  local open = core.open_directory_dialog
+  if self.pick_mode == FilePicker.mode.FILE_EXISTS then
+    open = core.open_file_dialog
+  elseif file then
+    open = core.save_file_dialog
   end
+  if not config.use_system_file_picker or not open then
+    core.command_view:enter(title, options)
+    return
+  end
+  local destination = core.project_absolute_path(common.home_expand(self.path))
+  local location = destination
+  while location ~= "" do
+    local info = system.get_file_info(location)
+    if info and info.type == "dir" then break end
+    local parent = common.dirname(location)
+    if not parent or parent == location then
+      location = ""
+      break
+    end
+    location = parent
+  end
+  open(core.window, function(status, result)
+    if status == "accept" then
+      local path = type(result) == "table" and result[1] or result
+      if path and options.validate(path) then options.submit(path) end
+    elseif status == "error" then
+      core.error("Error while opening dialog: %s", result or "")
+    end
+  end, {
+    title = title,
+    default_location = file and destination
+      or location ~= "" and location or nil,
+    allow_many = false,
+  })
 end
 
 function FilePicker:update_size_position()
   FilePicker.super.update_size_position(self)
   self:set_size(
-    self.file:get_width() + self.button:get_width(),
+    self:get_width(),
     self.button:get_height()
   )
 end

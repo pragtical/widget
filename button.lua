@@ -110,9 +110,9 @@ function Button:on_mouse_leave(...)
 end
 
 function Button:on_scale_change(new_scale, prev_scale)
-  Button.super.on_scale_change(self, new_scale, prev_scale)
   self.padding.x = self.padding.x * (new_scale / prev_scale)
   self.padding.y = self.padding.y * (new_scale / prev_scale)
+  Button.super.on_scale_change(self, new_scale, prev_scale)
 end
 
 function Button:update_size_position()

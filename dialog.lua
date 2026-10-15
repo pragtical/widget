@@ -85,7 +85,8 @@ function Dialog:update_size_position()
   local size = self:get_size()
 
   local width = math.max(
-    self.title:get_width() + (style.padding.x * 3) + self.close:get_width(),
+    self.title:get_content_size() + (style.padding.x * 3)
+      + self.close:get_width(),
     min_width,
     size.x
   )
@@ -96,11 +97,21 @@ function Dialog:update_size_position()
     size.y
   )
 
+  width = math.min(width,
+    math.max(1, core.root_view.size.x - style.padding.x * 2))
+  height = math.min(height,
+    math.max(1, core.root_view.size.y - style.padding.y * 2))
+
   self:set_size(width, height)
 
   self.title:set_position(
     style.padding.x / 2,
     style.padding.y / 2
+  )
+  self.title.scrollable = false
+  self.title:set_size(
+    math.max(1, width - self.close:get_width() - style.padding.x * 2),
+    self.title:get_font():get_height()
   )
 
   self.close:set_position(
@@ -119,48 +130,37 @@ function Dialog:update_size_position()
   )
 end
 
----We overwrite default draw function to draw the title background.
-function Dialog:draw()
-  if not self:is_visible() then return false end
-
-  Dialog.super.draw(self)
-
-  self:draw_border()
-
-  if self.background_color then
-    self:draw_background(self.background_color)
-  else
-    self:draw_background(
-      self.parent and style.background or style.background2
+---Keep the dialog chrome inside bounds constrained by the floating layout.
+---Oversized panel contents remain accessible through the panel's scrollbars.
+---@param x number Outer screen x coordinate
+---@param y number Outer screen y coordinate
+---@param w number Width including the border
+---@param h number Height including the border
+function Dialog:set_floating_bounds(x, y, w, h)
+  local width, height = self.size.x, self.size.y
+  Dialog.super.set_floating_bounds(self, x, y, w, h)
+  if width ~= self.size.x or height ~= self.size.y then
+    self.close:set_position(
+      self.size.x - self.close:get_width() - style.padding.x / 2,
+      style.padding.y / 2
     )
-  end
-
-  if #self.childs > 0 then
-    core.push_clip_rect(
-      self.position.x,
-      self.position.y,
+    self.panel:set_size(
       self.size.x,
-      self.size.y
+      math.max(0, self.size.y - self.panel:get_position().y)
     )
   end
+end
 
-  -- draw the title background
+---Paint the title as part of the normal Widget background pass.
+---@param color renderer.color Dialog background color
+function Dialog:draw_background(color)
+  Dialog.super.draw_background(self, color)
   renderer.draw_rect(
     self.position.x,
     self.position.y,
-    self.size.x, self.title:get_height() + style.padding.y,
+    self.size.x, math.min(self.size.y, self.title:get_height() + style.padding.y),
     style.selection
   )
-
-  for i=#self.childs, 1, -1 do
-    self.childs[i]:draw()
-  end
-
-  if #self.childs > 0 then
-    core.pop_clip_rect()
-  end
-
-  return true
 end
 
 

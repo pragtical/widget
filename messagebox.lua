@@ -53,10 +53,12 @@ function MessageBox:new(parent, title, message, icon, icon_color)
   MessageBox.super.new(self, parent)
   self.type_name = "widget.messagebox"
   self.draggable = true
-  self.scrollable = true
+  self.scrollable = false
   self.title = Label(self, "")
   self.icon = Label(self, "")
-  self.message = Label(self, "")
+  self.message = Label(self, "", true)
+  self.message.scrollable, self.message.clickable = true, true
+  self.title.scrollable = false
   self.buttons = {}
 
   self:set_title(title or "")
@@ -74,6 +76,10 @@ end
 ---@param icon widget.messagebox.icontype
 ---@param color? renderer.color
 function MessageBox:set_icon(icon, color)
+  if MessageBox.icon_huge_scale ~= SCALE then
+    MessageBox.icon_huge_font = style.icon_font:copy(50 * SCALE)
+    MessageBox.icon_huge_scale = SCALE
+  end
   if not color then
     color = style.text
     if icon == MessageBox.ICON_WARNING then
@@ -88,6 +94,7 @@ end
 ---Change the message box message.
 ---@param text string | widget.styledtext
 function MessageBox:set_message(text)
+  self.message_text = text
   self.message:set_label(text)
 end
 
@@ -140,18 +147,31 @@ end
 
 ---Position the buttons relative to the message.
 function MessageBox:reposition_buttons()
-  local buttons_width = self:get_buttons_width()
-  local buttons_x = ((self.size.x / 2) - (buttons_width / 2))
-  local buttons_y = self.message:get_bottom() + (style.padding.y * 2)
-  if self.icon.label[3] ~= "" then
-    buttons_y = math.max(
-      buttons_y, self.icon:get_bottom() + (style.padding.y * 2)
-    )
-  end
-
+  local rows, row, width = {}, {}, 0
+  local available = self.size.x - style.padding.x * 2
   for _, button in ipairs(self.buttons) do
-    button:set_position(buttons_x, buttons_y)
-    buttons_x = buttons_x + button:get_width() + style.padding.x
+    local next_width = width
+      + (#row > 0 and style.padding.x or 0)
+      + button:get_width()
+    if #row > 0 and next_width > available then
+      rows[#rows + 1] = { buttons = row, width = width }
+      row, width = {}, 0
+    end
+    width = width + (#row > 0 and style.padding.x or 0) + button:get_width()
+    row[#row + 1] = button
+  end
+  if #row > 0 then
+    rows[#rows + 1] = { buttons = row, width = width }
+  end
+  local height = self:get_buttons_height()
+  self.buttons_height = #rows * (height + style.padding.y)
+  local top = self.size.y - self.buttons_height
+  for i, item in ipairs(rows) do
+    local x = (self.size.x - item.width) / 2
+    for _, button in ipairs(item.buttons) do
+      button:set_position(x, top + (i - 1) * (height + style.padding.y))
+      x = x + button:get_width() + style.padding.x
+    end
   end
 end
 
@@ -166,64 +186,69 @@ end
 ---@param button_id integer
 ---@param button widget.button
 ---@diagnostic disable-next-line
-function MessageBox:on_close(button_id, button) self:hide() end
+function MessageBox:on_close(button_id, button)
+  self:hide()
+end
 
 function MessageBox:on_scale_change(new_scale, prev_scale)
-  MessageBox.super.on_scale_change(self, new_scale, prev_scale)
   MessageBox.icon_huge_font = style.icon_font:copy(50 * SCALE)
+  MessageBox.icon_huge_scale = SCALE
   self.icon.label[1] = MessageBox.icon_huge_font
+  MessageBox.super.on_scale_change(self, new_scale, prev_scale)
 end
 
 function MessageBox:update_size_position()
   MessageBox.super.update_size_position(self)
-
-  self:reposition_buttons()
-
-  local width = math.max(self.title:get_width())
-  width = math.max(width, self.message:get_width() + self.icon:get_width())
-  width = math.max(width, self:get_buttons_width())
-
-  local height = self.title:get_height() + style.padding.y
-  if self.icon.label[3] == "" then
-    height = height + self.message:get_height() + (style.padding.y * 2)
-  else
-    height = height
-      + math.max(self.icon:get_height(), self.message:get_height())
-      + (style.padding.y * 2)
-  end
-  height = height + self:get_buttons_height()
-
-  self:set_size(width + style.padding.x * 2, height + style.padding.y * 4)
-
-  self.title:set_position(
-    style.padding.x / 2,
-    style.padding.y / 2
-  )
-
-  self.icon:set_position(
-    style.padding.x,
-    self.title:get_bottom() + style.padding.y * 2
-  )
-
-  if self.icon.label[3] == "" then
-    self.message:set_position(
-      style.padding.x,
-      self.title:get_bottom() + style.padding.y
+  local px, py = style.padding.x, style.padding.y
+  local title_width = self.title:get_content_size()
+  local icon_width = self.icon.label[3] ~= "" and self.icon:get_width() or 0
+  local natural_width
+  if type(self.message_text) == "string" then
+    local _, _, width = self.message:draw_text_multiline(
+      self.message:get_font(),
+      self.message_text,
+      0,
+      0,
+      style.text,
+      true
     )
+    natural_width = width
   else
-    local msg_y = self.title:get_bottom() + style.padding.y + 10
-    if self.icon:get_height() > self.message:get_height() then
-      msg_y = (self.icon:get_height() / 2)
-        - (self.message:get_height() / 2)
-        + self.title:get_bottom() + style.padding.y
-    end
-    self.message:set_position(
-      self.icon:get_width() + (style.padding.x * 2) - (style.padding.x / 2),
-      msg_y
-    )
+    natural_width = self.message:draw_styled_text(self.message_text, 0, 0, true)
   end
-
+  local width = math.min(
+    800 * SCALE,
+    core.root_view.size.x - px * 4,
+    math.max(
+      320 * SCALE,
+      natural_width + icon_width + px * 3,
+      title_width + px * 2,
+      self:get_buttons_width() + px * 2
+    )
+  )
+  self:set_size(math.max(1, width), math.max(1, self.size.y))
+  self.title:set_position(px / 2, py / 2)
+  self.title:set_size(self.size.x - px, self.title:get_font():get_height())
+  local top = self.title:get_bottom() + py * 2
+  self.icon:set_position(px, top)
+  local left = px + (icon_width > 0 and icon_width + px / 2 or 0)
+  self.message:set_position(left, top)
+  self.message:set_size(math.max(1, self.size.x - left - px), 1)
+  self.message:wrap_text()
+  local _, message_height = self.message:get_content_size()
   self:reposition_buttons()
+  local body_height =
+    math.max(message_height, icon_width > 0 and self.icon:get_height() or 0)
+  local height = math.min(
+    core.root_view.size.y - py * 4,
+    top + body_height + py * 2 + self.buttons_height
+  )
+  self:set_size(width, math.max(1, height))
+  self:reposition_buttons()
+  self.message:set_size(
+    math.max(1, self.size.x - left - px),
+    math.max(1, self.size.y - self.buttons_height - top - py * 2)
+  )
 end
 
 ---We overwrite default draw function to draw the title background.

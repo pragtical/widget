@@ -415,38 +415,27 @@ function ListBox:get_selected()
   return nil
 end
 
+---Get the screen origin of the first visible row, including its inset.
+---@param self widget.listbox
+---@return number x Row left edge
+---@return number y Row top edge
+local function get_row_origin(self)
+  local x, y = self:get_content_offset()
+  local first = self.rows[self.visible_rows[1]]
+  return x + self.border.width,
+    y + self.border.width + (first and first.y or 0)
+end
+
 ---Get the row at a screen position.
 ---@param x number
 ---@param y number
 ---@return integer?
 function ListBox:get_row_at_position(x, y)
-  local header_height = 0
-  if #self.columns > 0 then
-    header_height = self:get_font():get_height() + style.padding.y
-  end
-
   if #self.visible_rows <= 0 then
     self:set_visible_rows()
   end
 
-  -- Match the same screen-space row origin calculation used by draw().
-  local opx, opy = self.parent:get_content_offset()
-  if not self.parent.parent and not self.defer_draw then
-    opy = 0
-  end
-
-  local ox, oy = self:get_content_offset()
-  oy = oy - opy - self.parent.scroll.y
-  if #self.visible_rows > 0 then
-    oy = oy + (self.rows[self.visible_rows[1]].y - header_height)
-  end
-  oy = oy - (self.position.y - self.parent.position.y)
-
-  ox = ox - opx - self.parent.scroll.x
-  ox = ox - (self.position.x - self.parent.position.x)
-
-  local row_x = ox + self.position.x + self.border.width
-  local row_y = oy + self.position.y + self.border.width + header_height
+  local row_x, row_y = get_row_origin(self)
 
   for _, ridx in ipairs(self.visible_rows) do
     local row = self.rows[ridx]
@@ -928,28 +917,8 @@ function ListBox:draw()
       - (self.parent.border.width * 2)
   end
 
-  -- Normalize the offset position
-  local opx, opy = self.parent:get_content_offset()
-  if not self.parent.parent and not self.defer_draw then
-    -- TODO: inspect why is this workaround needed
-    -- Without it wrong offset occurs on child listviews of a single parent
-    -- like in the case of the recent projects in EmptyView.
-    opy = 0
-  end
-
-  local ox, oy = self:get_content_offset()
-
-  oy = oy - opy - self.parent.scroll.y
-  if #self.visible_rows > 0 then
-    oy = oy + (self.rows[self.visible_rows[1]].y - new_height)
-  end
-  oy = oy - (self.position.y - self.parent.position.y)
-
-  ox = ox - opx - self.parent.scroll.x
-  ox = ox - (self.position.x - self.parent.position.x)
-
-  local x = ox + self.position.x + self.border.width
-  local y = oy + self.position.y + self.border.width + new_height
+  local x, y = get_row_origin(self)
+  local ox = x - self.position.x - self.border.width
 
   core.push_clip_rect(
     self.position.x, self.position.y, self.size.x, self.size.y
@@ -977,7 +946,6 @@ function ListBox:draw()
   end
   core.pop_clip_rect()
 
-  self:draw_border()
   self:draw_scrollbar()
 
   return true

@@ -211,9 +211,6 @@ function NumberBox:update_size_position()
       self.decrease_button:get_height(),
       self.increase_button:get_height()
     )
-    -- TODO: check what causes the need for this border size addition since
-    -- it shouldn't be needed but for now fixes occasional bottom border cut.
-    + self.textbox.border.width * 2
   )
 end
 
