@@ -100,6 +100,8 @@ end
 
 function TextView:update()
   TextView.super.update(self)
+  -- A zero scroll is already inside every possible horizontal scroll range.
+  if self.scroll.x == 0 and self.scroll.to.x == 0 then return end
   local width = self:get_col_x_offset(1, #self.doc.lines[1])
   local margin = 3 * self:get_font():get_width(" ")
   local max_x = math.max(0, width + margin - self.size.x)

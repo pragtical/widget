@@ -608,7 +608,8 @@ function Widget:set_border_width(width)
 end
 
 ---Called on the update function to be able to scroll the child widgets.
-function Widget:update_position()
+---@param recursive? boolean Update descendants; defaults to true.
+function Widget:update_position(recursive)
   if self.parent then
     self.position.x = self.position.rx + self.border.width
     self.position.y = self.position.ry + self.border.width
@@ -619,8 +620,10 @@ function Widget:update_position()
     self.position.y = oy + self.position.y
   end
 
-  for _, child in pairs(self.childs) do
-    child:update_position()
+  if recursive ~= false then
+    for _, child in pairs(self.childs) do
+      child:update_position()
+    end
   end
 end
 
@@ -1436,14 +1439,15 @@ function Widget:update()
 
   Widget.super.update(self)
 
-  -- call this to be able to properly scroll
-  self:update_position()
+  -- Descendants refresh their positions before their own update below.
+  self:update_position(false)
 
   -- run any pending animations
   self:run_animations()
 
   if not self.explicit_update then
     for _, child in pairs(self.childs) do
+      child:update_position(false)
       child:update()
     end
   else
