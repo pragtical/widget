@@ -1327,6 +1327,7 @@ function Widget:animate(target, properties, options)
     properties = properties,
     options = options
   })
+  self:schedule_update()
 end
 
 ---Runs all registered animations removing duplicated and finished ones.
