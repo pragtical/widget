@@ -85,7 +85,10 @@ end
 ---Launch the commandview and let the user select a font.
 ---@param callback fun(name:string, path:string)
 ---@param monospaced boolean
-function Fonts.show_picker(callback, monospaced)
+---@param on_select? fun(name:string?, path:string?) Called when the highlighted font changes; nil values mean no results
+---@param cancel? fun() Called when the picker closes without confirmation
+function Fonts.show_picker(callback, monospaced, on_select, cancel)
+  if core.command_view:is_open() then return end
   if not fontcache then fontcache = FontCache() end
 
   pick_monospaced = monospaced
@@ -112,6 +115,10 @@ function Fonts.show_picker(callback, monospaced)
   last_statusview_render = system.get_time()
 
   core.command_view:enter("Select Font", {
+    on_select = on_select and function(item)
+      on_select(item and item.text, item and item.info)
+    end,
+    validate = function(text, item) return item ~= nil end,
     submit = function(text, item)
       callback(item.text, item.info)
       clean_fonts_cache()
@@ -135,6 +142,7 @@ function Fonts.show_picker(callback, monospaced)
       return res
     end,
     cancel = function()
+      if cancel then cancel() end
       clean_fonts_cache()
     end
   })

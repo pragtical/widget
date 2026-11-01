@@ -73,11 +73,7 @@ function FontDialog:new(font, options)
   self.choose:set_icon("D")
   self.choose:set_tooltip("Choose a Font")
   function self.choose:on_click()
-    Fonts.show_picker(function(name, path)
-      local fontdata = {name = name, path = path}
-      this:set_font(fontdata)
-      this:update_preview()
-    end, false)
+    this:show_font_picker(false)
     core.status_view:remove_tooltip()
   end
 
@@ -85,11 +81,7 @@ function FontDialog:new(font, options)
   self.choose_mono:set_icon("D")
   self.choose_mono:set_tooltip("Choose a Monospace Font")
   function self.choose_mono:on_click()
-    Fonts.show_picker(function(name, path)
-      local fontdata = {name = name, path = path}
-      this:set_font(fontdata)
-      this:update_preview()
-    end, true)
+    this:show_font_picker(true)
     core.status_view:remove_tooltip()
   end
 
@@ -164,15 +156,35 @@ function FontDialog:new(font, options)
   end
 end
 
-function FontDialog:update_preview()
-  local options = self:get_options()
+---Browse fonts with a temporary sample, keeping the chosen font until confirmation.
+---@param monospaced boolean Only list monospaced fonts
+function FontDialog:show_font_picker(monospaced)
+  local preview_path = self.fontdata and self.fontdata.path
+  Fonts.show_picker(function(name, path)
+    self:set_font { name = name, path = path }
+    self:update_preview()
+  end, monospaced, function(name, path)
+    if path ~= preview_path then
+      preview_path = path
+      core.try(self.update_preview, self, path and { name = name, path = path } or nil)
+    end
+  end, function()
+    self:update_preview()
+  end)
+end
 
-  if self.fontdata and self.fontdata.path then
+---Update the sample using the selected font or a temporary font from the picker.
+---@param font? widget.fontslist.font Temporary preview; does not change the selected font
+function FontDialog:update_preview(font)
+  local options = self:get_options()
+  local fontdata = font or self.fontdata
+
+  if fontdata and fontdata.path then
     self.preview.font = renderer.font.load(
-      self.fontdata.path, options.size * SCALE, options
+      fontdata.path, options.size * SCALE, options
     )
-    local fontmeta = renderer.font.get_metadata(self.fontdata.path) or {}
-    local preview = fontmeta.sampletext or self.fontdata.name
+    local fontmeta = renderer.font.get_metadata(fontdata.path) or {}
+    local preview = fontmeta.sampletext or fontdata.name
     if preview then
       self.preview:set_label(preview)
     end
@@ -182,6 +194,7 @@ function FontDialog:update_preview()
       options.size * SCALE,
       options
     )
+    self.preview:set_label("No Font Selected")
   end
 
   collectgarbage "step"
