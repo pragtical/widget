@@ -347,7 +347,7 @@ function ListBox:remove_row(ridx)
   if #self.rows_idx_original > 0 then
     MessageBox.error(
       "Can not remove row",
-      "Rows can not be removed when the list is filtered."
+      "Rows can not be removed when the list is filtered.", nil, nil, self
     )
     return
   end

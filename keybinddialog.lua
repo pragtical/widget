@@ -66,7 +66,7 @@ function KeybindDialog:new()
       this.shortcuts:set_selected(nil)
       this.selected = nil
     else
-      MessageBox.error("No shortcut selected", "Please select an shortcut to remove")
+      MessageBox.error("No shortcut selected", "Please select an shortcut to remove", nil, nil, this)
     end
   end
 

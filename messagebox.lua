@@ -304,10 +304,12 @@ end
 ---@param icon_color? renderer.color
 ---@param on_close? widget.messagebox.onclosehandler
 ---@param buttons? widget.messagebox.buttonstype
-function MessageBox.alert(title, message, icon, icon_color, on_close, buttons)
+---@param owner? core.view Originating view; shares its floating lifetime and stacking
+function MessageBox.alert(title, message, icon, icon_color, on_close, buttons, owner)
   buttons = buttons or MessageBox.BUTTONS_OK
   ---@type widget.messagebox
   local msgbox = MessageBox(nil, title, message, icon, icon_color)
+  msgbox:set_floating(true, { owner = owner })
   if buttons == MessageBox.BUTTONS_OK_CANCEL then
     msgbox:add_button("Ok")
     msgbox:add_button("Cancel")
@@ -338,8 +340,9 @@ end
 ---@param message string | widget.styledtext
 ---@param on_close? widget.messagebox.onclosehandler
 ---@param buttons? widget.messagebox.buttonstype
-function MessageBox.info(title, message, on_close, buttons)
-  MessageBox.alert(title, message, MessageBox.ICON_INFO, nil, on_close, buttons)
+---@param owner? core.view Originating view; shares its floating lifetime and stacking
+function MessageBox.info(title, message, on_close, buttons, owner)
+  MessageBox.alert(title, message, MessageBox.ICON_INFO, nil, on_close, buttons, owner)
 end
 
 ---Wrapper to easily show a warning message box.
@@ -347,8 +350,9 @@ end
 ---@param message string | widget.styledtext
 ---@param on_close? widget.messagebox.onclosehandler
 ---@param buttons? widget.messagebox.buttonstype
-function MessageBox.warning(title, message, on_close, buttons)
-  MessageBox.alert(title, message, MessageBox.ICON_WARNING, nil, on_close, buttons)
+---@param owner? core.view Originating view; shares its floating lifetime and stacking
+function MessageBox.warning(title, message, on_close, buttons, owner)
+  MessageBox.alert(title, message, MessageBox.ICON_WARNING, nil, on_close, buttons, owner)
 end
 
 ---Wrapper to easily show an error message box.
@@ -356,8 +360,9 @@ end
 ---@param message string | widget.styledtext
 ---@param on_close? widget.messagebox.onclosehandler
 ---@param buttons? widget.messagebox.buttonstype
-function MessageBox.error(title, message, on_close, buttons)
-  MessageBox.alert(title, message, MessageBox.ICON_ERROR, nil, on_close, buttons)
+---@param owner? core.view Originating view; shares its floating lifetime and stacking
+function MessageBox.error(title, message, on_close, buttons, owner)
+  MessageBox.alert(title, message, MessageBox.ICON_ERROR, nil, on_close, buttons, owner)
 end
 
 

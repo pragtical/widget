@@ -143,7 +143,7 @@ function FontDialog:new(font, options)
       this:on_save(this:get_font(), this:get_options())
       this:on_close()
     else
-      MessageBox.error("No font selected", "Please select a font")
+      MessageBox.error("No font selected", "Please select a font", nil, nil, this)
     end
   end
 

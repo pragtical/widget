@@ -51,8 +51,9 @@ function FontsList:new(parent)
       this.dialog = true
       local selected = this.list:get_selected()
       local fontdata = this.list:get_row_data(selected)
-      ---@type widget.inputdialog
+      ---@type widget.fontdialog
       local font = FontDialog(fontdata, this:get_options())
+      font:set_floating(true, { owner = this })
       function font:on_save(fontdata, options)
         this:set_options(options)
         this:edit_font(selected, fontdata)
@@ -60,7 +61,12 @@ function FontsList:new(parent)
       function font:on_close()
         FontDialog.on_close(self)
         self:destroy()
-        this.dialog = false
+      end
+      ---Release the dialog guard on ordinary close or owner-driven hide.
+      ---@param visible boolean
+      function font:on_floating_visibility_changed(visible)
+        FontDialog.on_floating_visibility_changed(self, visible)
+        if not visible then this.dialog = false end
       end
       font:show()
     end
@@ -72,13 +78,14 @@ function FontsList:new(parent)
   self.add:set_icon("]")
   function self.add:on_click()
     if #this.list.rows > 9 then
-      MessageBox.error("Max Fonts Reached", "Only a maximum of ten fonts can be added.")
+      MessageBox.error("Max Fonts Reached", "Only a maximum of ten fonts can be added.", nil, nil, this)
       return
     end
     if not this.dialog then
       this.dialog = true
-      ---@type widget.inputdialog
+      ---@type widget.fontdialog
       local font = FontDialog(nil, this:get_options())
+      font:set_floating(true, { owner = this })
       function font:on_save(fontdata, options)
         this:set_options(options)
         this:add_font(fontdata)
@@ -86,7 +93,12 @@ function FontsList:new(parent)
       function font:on_close()
         FontDialog.on_close(self)
         self:destroy()
-        this.dialog = false
+      end
+      ---Release the dialog guard on ordinary close or owner-driven hide.
+      ---@param visible boolean
+      function font:on_floating_visibility_changed(visible)
+        FontDialog.on_floating_visibility_changed(self, visible)
+        if not visible then this.dialog = false end
       end
       font:show()
     end
@@ -100,10 +112,10 @@ function FontsList:new(parent)
       if #this.list.rows > 1 then
         this:remove_font(selected)
       else
-        MessageBox.error("Font required", "A minimum of one font is needed")
+        MessageBox.error("Font required", "A minimum of one font is needed", nil, nil, this)
       end
     else
-      MessageBox.error("No font selected", "Please select a font to remove")
+      MessageBox.error("No font selected", "Please select a font to remove", nil, nil, this)
     end
   end
 
@@ -116,7 +128,7 @@ function FontsList:new(parent)
       this.list:move_row_up(selected)
       this:on_change()
     else
-      MessageBox.error("No font selected", "Please select a font to move")
+      MessageBox.error("No font selected", "Please select a font to move", nil, nil, this)
     end
   end
 
@@ -129,7 +141,7 @@ function FontsList:new(parent)
       this.list:move_row_down(selected)
       this:on_change()
     else
-      MessageBox.error("No font selected", "Please select a font to move")
+      MessageBox.error("No font selected", "Please select a font to move", nil, nil, this)
     end
   end
 end

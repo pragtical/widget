@@ -15,6 +15,7 @@ local MessageBox = require "widget.messagebox"
 ---@field list widget.listbox
 ---@field add widget.button
 ---@field remove widget.button
+---@field private dialog boolean
 local ItemsList = Widget:extend()
 
 ---Constructor
@@ -43,13 +44,19 @@ function ItemsList:new(parent)
       local selvalue = this.list:get_row_text(selected)
       ---@type widget.inputdialog
       local input = InputDialog("Edit Item", "Enter the new item value:", selvalue)
+      input:set_floating(true, { owner = this })
       function input:on_save(value)
         this:edit_item(selected, value)
       end
       function input:on_close()
         InputDialog.on_close(self)
         self:destroy()
-        this.dialog = false
+      end
+      ---Release the dialog guard on ordinary close or owner-driven hide.
+      ---@param visible boolean
+      function input:on_floating_visibility_changed(visible)
+        InputDialog.on_floating_visibility_changed(self, visible)
+        if not visible then this.dialog = false end
       end
       input:show()
     end
@@ -61,15 +68,22 @@ function ItemsList:new(parent)
   self.add:set_icon("]")
   function self.add:on_click()
     if not this.dialog then
+      this.dialog = true
       ---@type widget.inputdialog
       local input = InputDialog("Add Item", "Enter the new item:")
+      input:set_floating(true, { owner = this })
       function input:on_save(value)
         this:add_item(value)
       end
       function input:on_close()
         InputDialog.on_close(self)
         self:destroy()
-        this.dialog = false
+      end
+      ---Release the dialog guard on ordinary close or owner-driven hide.
+      ---@param visible boolean
+      function input:on_floating_visibility_changed(visible)
+        InputDialog.on_floating_visibility_changed(self, visible)
+        if not visible then this.dialog = false end
       end
       input:show()
     end
@@ -82,7 +96,7 @@ function ItemsList:new(parent)
     if selected then
       this:remove_item(selected)
     else
-      MessageBox.error("No item selected", "Please select an item to remove")
+      MessageBox.error("No item selected", "Please select an item to remove", nil, nil, this)
     end
   end
 end
