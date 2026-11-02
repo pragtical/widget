@@ -494,14 +494,8 @@ end
 
 function SearchReplaceList:draw_checkbox(checked, hovered, x, y, lh)
   local w, h, cy = self:get_checkbox_size(y)
-  renderer.draw_rect(x, cy, w, h, style.text)
-  renderer.draw_rect(
-    x + 2, cy + 2, w-4, h-4,
-    hovered and style.dim or style.background
-  )
-  if checked then
-    renderer.draw_rect(x + 5, cy + 5, w-10, h-10, style.caret)
-  end
+  common.draw_text(style.icon_font, hovered and style.accent or checked and style.caret or style.text,
+    checked and "☑" or "☐", "center", x, cy, w, h)
   return x + w
 end
 
