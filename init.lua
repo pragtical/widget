@@ -1459,6 +1459,7 @@ function Widget:update()
 
   if not self.updated and self.size.y > 0 and self.size.x > 0 then
     self.updated = true
+    core.redraw = true
   end
 
   return true
