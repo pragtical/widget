@@ -50,7 +50,10 @@ function NumberBox:new(parent, value, min, max, step)
       if not this.coroutine_run then
         this.coroutine_run = true
         core.add_thread(function()
-          this.textbox:set_text(this.current_text)
+          -- Replacing text can briefly be empty before a valid value is inserted.
+          if not tonumber(this.textbox:get_text()) then
+            this.textbox:set_text(this.current_text)
+          end
           this.coroutine_run = false
         end)
       end
