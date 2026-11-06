@@ -61,6 +61,20 @@ Until some form of documentation is written check the [examples](examples/)
 directory which contains code samples to help you understand how to use the
 plugin. A good starting point can be the [search mockup](examples/search.lua).
 
+TextBox can optionally display a clear icon inside its right edge:
+
+```lua
+local TextBox = require "widget.textbox"
+local search = TextBox(parent, "", "Search...", { clearable = true })
+search:set_clearable(false) -- Disable it later, if needed.
+search:set_clearable(true)
+```
+
+The icon is hidden while the input is empty. Clicking it clears the text,
+keeps keyboard focus, and calls the usual `on_change` callback. Clearing can
+be undone separately from typing. The option is disabled by default and can
+be combined with `{ password = true, clearable = true }`.
+
 ## Showcase Videos
 
 Floating non blocking message boxes:

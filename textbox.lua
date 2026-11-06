@@ -14,6 +14,7 @@ local View = require "core.view"
 local Widget = require "widget"
 
 local PASSWORD_CHAR = "•"
+local CLEAR_ICON = "C"
 
 ---@param text string
 ---@return string
@@ -218,14 +219,27 @@ function TextView:draw()
   self:draw_scrollbar()
 end
 
+---Optional TextBox behaviors, disabled by default.
+---@class widget.textbox.options
+---@field password? boolean Mask the displayed text
+---@field clearable? boolean Show an internal clear icon when the input is nonempty
+
 ---@class widget.textbox : widget
----@overload fun(parent?:widget, text?:string, placeholder?:string, options?:table):widget.textbox
+---@overload fun(parent?:widget, text?:string, placeholder?:string, options?:widget.textbox.options):widget.textbox
 ---@field textview widget.textbox.TextView
 ---@field active boolean Whether the embedded TextView has keyboard focus
 ---@field placeholder string
 ---@field password boolean
+---@field clearable boolean Whether the internal clear action is enabled
+---@field private clear_pressed boolean Whether the current gesture began on the clear icon
+---@field private clear_width number Reserved width inside the input, in pixels
 local TextBox = Widget:extend()
 
+---Create a single-line input with optional password and clear-button behavior.
+---@param parent? widget
+---@param text? string
+---@param placeholder? string
+---@param options? widget.textbox.options
 function TextBox:new(parent, text, placeholder, options)
   TextBox.super.new(self, parent)
   self.type_name = "widget.textbox"
@@ -240,8 +254,11 @@ function TextBox:new(parent, text, placeholder, options)
   self.cursor = "ibeam"
   self.active = false
   self.password = options and options.password or false
+  self.clearable = options and options.clearable or false
+  self.clear_pressed = false
+  self:set_size(nil)
 
-  if text ~= "" then
+  if text and text ~= "" then
     self.textview:set_text(text)
   end
 
@@ -272,7 +289,9 @@ function TextBox:set_size(width)
     width,
     self:get_font():get_height() + (style.padding.y * 2)
   )
-  self.textview.size.x = math.max(0, self.size.x - style.padding.x)
+  self.clear_width = self.clearable
+    and math.min(self.size.x, style.icon_font:get_width(CLEAR_ICON) + style.padding.x) or 0
+  self.textview.size.x = math.max(0, self.size.x - style.padding.x - self.clear_width)
 end
 
 --- Get the text displayed on the textbox.
@@ -300,6 +319,40 @@ function TextBox:get_password_mode()
   return self.password
 end
 
+---Enable or disable the clear icon, preserving a stable text viewport while enabled.
+---@param enabled boolean
+function TextBox:set_clearable(enabled)
+  if self.clearable == enabled then return end
+  self.clearable = enabled
+  if not enabled and self.clear_pressed then self:release_mouse() end
+  self.clear_pressed = false
+  self:set_size(nil)
+  core.redraw = true
+end
+
+---Return the visible clear action's bounds inside the input border.
+---@return number? x Screen x, or nil when empty or disabled
+---@return number? y Screen y
+---@return number? width Hit area width
+---@return number? height Hit area height
+function TextBox:get_clear_button_bounds()
+  if not self.clearable or #self.textview.doc.lines[1] <= 1
+    or self.clear_width <= 0 or self.size.y <= 0
+  then return end
+  return self.position.x + self.size.x - self.clear_width,
+    self.position.y, self.clear_width, self.size.y
+end
+
+---Use the same rectangle for clear-icon drawing and pointer routing.
+---@param self widget.textbox
+---@param x number
+---@param y number
+---@return boolean inside
+local function clear_button_contains(self, x, y)
+  local bx, by, width, height = self:get_clear_button_bounds()
+  return bx ~= nil and x >= bx and x < bx + width and y >= by and y < by + height
+end
+
 --
 -- Events
 --
@@ -317,6 +370,8 @@ function TextBox:on_mouse_pressed(button, x, y, clicks)
   self:activate()
   self.mouse.x, self.mouse.y = x, y
   self:capture_mouse(false, button)
+  self.clear_pressed = clear_button_contains(self, x, y)
+  if self.clear_pressed then return true end
   self.textview:on_mouse_pressed(button, x, y, clicks)
 
   -- Padding belongs to the input too; resolve it at the nearest text edge.
@@ -333,18 +388,35 @@ end
 
 function TextBox:on_mouse_released(button, x, y)
   if self.captured_button and self.captured_button ~= button then return false end
+  local clear_pressed = self.clear_pressed
+  self.clear_pressed = false
   local handled = TextBox.super.on_mouse_released(self, button, x, y)
   if handled then self.textview:on_mouse_released(button, x, y) end
+  if handled and clear_pressed and button == "left" and clear_button_contains(self, x, y) then
+    -- Keep this edit separate from both preceding and subsequent typing.
+    local doc = self.textview.doc
+    doc.undo_stack.force_group = true
+    self:set_text("")
+    doc.undo_stack.force_group = true
+    self.textview.scroll.x, self.textview.scroll.to.x = 0, 0
+  end
   return handled
 end
 
 function TextBox:on_mouse_capture_lost()
+  self.clear_pressed = false
   TextBox.super.on_mouse_capture_lost(self)
   self.textview:on_mouse_released("left", self.mouse.x, self.mouse.y)
 end
 
 function TextBox:on_mouse_moved(x, y, dx, dy)
   local handled = TextBox.super.on_mouse_moved(self, x, y, dx, dy)
+  if self.clear_pressed or not self.textview.mouse_selecting and clear_button_contains(self, x, y) then
+    self.cursor = "arrow"
+    if handled then core.request_cursor("arrow") end
+    return handled
+  end
+  self.cursor = "ibeam"
   if self.textview.mouse_selecting or handled and (self.active or core.active_view == self.textview) then
     self.textview:on_mouse_moved(x, y, dx, dy)
     return true
@@ -359,6 +431,7 @@ end
 
 function TextBox:deactivate()
   self.hover_border = nil
+  self.clear_pressed = false
   self:release_mouse()
   self.textview:on_mouse_released("left", self.mouse.x, self.mouse.y)
   self.active = false
@@ -391,19 +464,23 @@ function TextBox:update()
   end
 
   self.border.color = self.hover_border or style.text
+  self:set_size(nil)
+  local over_clear = self.mouse_is_hovering and not self.textview.mouse_selecting
+    and clear_button_contains(self, self.mouse.x, self.mouse.y)
+  self.cursor = (self.clear_pressed or over_clear) and "arrow" or "ibeam"
 
   if
-    self.mouse_is_hovering
+    self.mouse_is_hovering or self.clear_pressed
     or
     (self.textview.mouse_selecting and self.captured_button == "left"
       and core.active_view == self.textview)
   then
-    core.request_cursor("ibeam")
+    core.request_cursor(self.cursor)
   end
 
   self.textview.position.x = self.position.x + (style.padding.x / 2)
   self.textview.position.y = self.position.y - (style.padding.y/2.5)
-  self.textview.size.x = math.max(0, self.size.x - style.padding.x)
+  self.textview.size.x = math.max(0, self.size.x - style.padding.x - self.clear_width)
   self.textview.size.y = self.size.y - (style.padding.y * 2)
 
   -- Keep extending at an edge while the pointer is stationary and X scrolls.
@@ -416,8 +493,6 @@ function TextBox:update()
   end
   self.textview:update()
 
-  self:set_size(nil, self:get_font():get_height() + (style.padding.y * 2))
-
   return true
 end
 
@@ -427,11 +502,21 @@ function TextBox:draw()
   core.push_clip_rect(
     self.position.x,
     self.position.y,
-    self.size.x,
+    math.max(0, self.size.x - self.clear_width),
     self.size.y
   )
   self.textview:draw()
   core.pop_clip_rect()
+
+  local x, y, width, height = self:get_clear_button_bounds()
+  if x then
+    core.push_clip_rect(self.position.x, self.position.y, self.size.x, self.size.y)
+    local hovered = self.mouse_is_hovering and not self.textview.mouse_selecting
+      and clear_button_contains(self, self.mouse.x, self.mouse.y)
+    common.draw_text(style.icon_font, hovered and style.accent or style.dim,
+      CLEAR_ICON, "center", x, y, width, height)
+    core.pop_clip_rect()
+  end
 
   return true
 end
