@@ -105,6 +105,10 @@ local ScrollBar = require "widget.scrollbar"
 ---@field protected next_zindex integer
 ---@field protected mouse widget.position
 ---@field protected prev_size widget.position
+---@field protected last_update_x? number Screen x at the last update
+---@field protected last_update_y? number Screen y at the last update
+---@field protected last_update_width? number Viewport width at the last update
+---@field protected last_update_height? number Viewport height at the last update
 ---@field protected mouse_is_pressed boolean
 ---@field protected mouse_is_hovering boolean
 ---@field protected hovered_child widget? Child that last received hover motion
@@ -1457,9 +1461,20 @@ function Widget:update()
     end
   end
 
+  -- Parent layout can change our bounds after updating its children.
+  if
+    self.last_update_x ~= self.position.x
+    or self.last_update_y ~= self.position.y
+    or self.last_update_width ~= self.size.x
+    or self.last_update_height ~= self.size.y
+  then
+    self.last_update_x, self.last_update_y = self.position.x, self.position.y
+    self.last_update_width, self.last_update_height = self.size.x, self.size.y
+    core.redraw = true
+  end
+
   if not self.updated and self.size.y > 0 and self.size.x > 0 then
     self.updated = true
-    core.redraw = true
   end
 
   return true
