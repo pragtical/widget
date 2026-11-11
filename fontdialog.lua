@@ -36,6 +36,7 @@ local Fonts = require "widget.fonts"
 ---@field smoothing widget.checkbox
 ---@field strikethrough widget.checkbox
 ---@field ligatures widget.checkbox
+---@field system_fallback widget.checkbox
 ---@field save widget.button
 ---@field cancel widget.button
 local FontDialog = Dialog:extend()
@@ -127,6 +128,12 @@ function FontDialog:new(font, options)
   function self.ligatures:on_checked()
     this:update_preview()
   end
+  self.system_fallback = CheckBox(self.panel, "System Fallback")
+  self.system_fallback:set_checked(true)
+  self.system_fallback:set_tooltip("Use installed fonts for characters missing from the configured font group.")
+  function self.system_fallback:on_checked()
+    this:update_preview()
+  end
 
   self.save = Button(self.panel, "Save")
   self.save:set_icon("S")
@@ -213,6 +220,7 @@ function FontDialog:get_font()
   return self.fontdata
 end
 
+---Apply the rendering options and refresh the font preview.
 ---@param options widget.fontdialog.fontoptions
 function FontDialog:set_options(options)
   if options.size then
@@ -257,6 +265,10 @@ function FontDialog:set_options(options)
   if options.ligatures ~= nil then
     self.ligatures:set_checked(options.ligatures)
   end
+  if options.system_fallback ~= nil then
+    self.system_fallback:set_checked(options.system_fallback)
+  end
+  self:update_preview()
 end
 
 ---@return widget.fontdialog.fontoptions
@@ -270,7 +282,8 @@ function FontDialog:get_options()
     underline = self.underline:is_checked(),
     smoothing = self.smoothing:is_checked(),
     strikethrough = self.strikethrough:is_checked(),
-    ligatures = self.ligatures:is_checked()
+    ligatures = self.ligatures:is_checked(),
+    system_fallback = self.system_fallback:is_checked()
   }
 end
 
@@ -335,17 +348,21 @@ function FontDialog:update_size_position()
     self.hinting:get_bottom() + style.padding.y
   )
   self.ligatures:set_position(
-    self.strikethrough:get_right() + style.padding.x,
-    self.hinting:get_bottom() + style.padding.y
+    style.padding.x/2,
+    self.strikethrough:get_bottom() + style.padding.y
+  )
+  self.system_fallback:set_position(
+    self.ligatures:get_right() + style.padding.x,
+    self.strikethrough:get_bottom() + style.padding.y
   )
 
   self.save:set_position(
     style.padding.x/2,
-    self.underline:get_bottom() + style.padding.y
+    self.system_fallback:get_bottom() + style.padding.y
   )
   self.cancel:set_position(
     self.save:get_right() + style.padding.x,
-    self.underline:get_bottom() + style.padding.y
+    self.system_fallback:get_bottom() + style.padding.y
   )
 
   self.panel.size.x = self.panel:get_real_width() + style.padding.x
@@ -356,7 +373,8 @@ function FontDialog:update_size_position()
   self.line:set_width(self.size.x - style.padding.x)
 
   self.preview:set_size(
-    math.max(self.hinting:get_right(), self.ligatures:get_right())
+    math.max(self.hinting:get_right(), self.strikethrough:get_right(),
+      self.system_fallback:get_right())
       - style.padding.x / 2
   )
 
