@@ -229,9 +229,11 @@ function ListBox:set_visible_rows()
 
   -- start from nearest row relative to scroll direction for
   -- better performance on long lists
+  -- An unchanged offset can accompany a resize; scan forward to include
+  -- rows newly exposed below the cached range.
   local idx, total, step = 1, #self.rows, 1
   if #self.visible_rows > 0 then
-    if oy < self.last_offset or not self.visible_rendered then
+    if oy <= self.last_offset or not self.visible_rendered then
       idx = self.visible_rows[1]
       self.visible_rendered = true
     else
